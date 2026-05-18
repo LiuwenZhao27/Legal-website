@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>公司法务事项管理平台</title>
+<!-- Supabase JS SDK (Realtime) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- Frappe Gantt -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.min.css">
 <style>
@@ -889,6 +891,7 @@
   <header class="header">
     <h1 id="page-title">全部项目</h1>
     <div class="header-actions">
+      <span id="rt-status" style="font-size:11px;color:var(--text-secondary);margin-right:8px;" title="实时同步状态">📡 同步中</span>
       <span id="db-status" style="font-size:11px;color:var(--text-secondary);margin-right:12px;">⏳ 未连接</span>
       <span id="readonly-badge" class="readonly-indicator" style="display:none;">🔒 只读模式</span>
       <button class="btn btn-outline btn-sm" onclick="toggleSettings()">⚙️ API设置</button>
@@ -1278,33 +1281,146 @@ const TABLE = 'legal_projects';
 const DEFAULT_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzanJwcWVibnp3dnh4cXNremFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MzIwMTgsImV4cCI6MjA5NDQwODAxOH0._kKjfutrdgu5t2dVrR2T_1pGQ6r3K7cv8I88eL2glrw';
 let ANON_KEY = localStorage.getItem('supabase_anon_key') || DEFAULT_ANON_KEY;
 
+// ===== Supabase Client & Realtime State =====
+let supabaseClient = null;
+let realtimeChannel = null;
+let _realtimeDebounce = null;
+let _localChangeTimestamp = 0;  // Track local changes to suppress duplicate toasts
+
+function getSupabase() {
+  if (!supabaseClient) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, ANON_KEY, {
+      realtime: { params: { eventsPerSecond: 10 } }
+    });
+  }
+  return supabaseClient;
+}
+
+// ===== Supabase REST API Helpers for Users =====
+const USERS_TABLE = 'legal_users';
+const SUPABASE_REST = SUPABASE_URL + '/rest/v1';
+
+async function apiGetUsers() {
+  const resp = await fetch(`${SUPABASE_REST}/${USERS_TABLE}?select=*&order=id.asc`, {
+    headers: {
+      'apikey': ANON_KEY,
+      'Authorization': `Bearer ${ANON_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  if (!resp.ok) throw new Error(`API GET users failed: ${resp.status}`);
+  return await resp.json();
+}
+
+async function apiInsertUser(user) {
+  const resp = await fetch(`${SUPABASE_REST}/${USERS_TABLE}`, {
+    method: 'POST',
+    headers: {
+      'apikey': ANON_KEY,
+      'Authorization': `Bearer ${ANON_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(user)
+  });
+  if (!resp.ok) throw new Error(`API INSERT user failed: ${resp.status}`);
+}
+
+async function apiUpdateUser(id, fields) {
+  const resp = await fetch(`${SUPABASE_REST}/${USERS_TABLE}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': ANON_KEY,
+      'Authorization': `Bearer ${ANON_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(fields)
+  });
+  if (!resp.ok) throw new Error(`API UPDATE user failed: ${resp.status}`);
+}
+
+async function apiDeleteUser(id) {
+  const resp = await fetch(`${SUPABASE_REST}/${USERS_TABLE}?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: {
+      'apikey': ANON_KEY,
+      'Authorization': `Bearer ${ANON_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  if (!resp.ok) throw new Error(`API DELETE user failed: ${resp.status}`);
+}
+
 // ===== Authentication System =====
 const AUTH_USERS_KEY = 'auth_users';
 const AUTH_SESSION_KEY = 'auth_session';
 
-// Initialize default admin if not exists
-function initAuthUsers() {
-  let users = JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]');
-  if (users.length === 0) {
-    users = [{
-      id: 1,
-      username: '柳文',
-      password: '3636123456s',
-      role: 'admin',
-      approved: true,
-      createdAt: new Date().toISOString()
-    }];
-    localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+// In-memory cache for users (avoids excessive API calls)
+let _usersCache = null;
+let _cacheTimestamp = 0;
+const CACHE_TTL = 10000; // 10 seconds
+
+async function refreshUsersCache() {
+  const now = Date.now();
+  if (_usersCache && (now - _cacheTimestamp) < CACHE_TTL) return _usersCache;
+  try {
+    _usersCache = await apiGetUsers();
+    _cacheTimestamp = now;
+    // Also update localStorage as fallback
+    localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(_usersCache));
+  } catch (e) {
+    console.warn('Failed to fetch users from API, using localStorage fallback:', e.message);
+    _usersCache = JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]');
+    _cacheTimestamp = now;
   }
-  return users;
+  return _usersCache;
 }
 
-function getAuthUsers() {
-  return JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]');
+// Initialize default admin — sync to DB on first load
+async function initAuthUsers() {
+  try {
+    let users = await apiGetUsers();
+    if (users.length === 0) {
+      // No users in DB — insert default admin
+      const defaultAdmin = {
+        id: 1,
+        username: '柳文',
+        password: '3636123456s',
+        role: 'admin',
+        approved: true,
+        created_at: new Date().toISOString()
+      };
+      await apiInsertUser(defaultAdmin);
+      users = [defaultAdmin];
+      console.log('✅ Default admin inserted to Supabase');
+    }
+    _usersCache = users;
+    _cacheTimestamp = Date.now();
+    localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+    return users;
+  } catch (e) {
+    console.warn('initAuthUsers: API unavailable, using localStorage fallback', e.message);
+    let users = JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]');
+    if (users.length === 0) {
+      users = [{ id: 1, username: '柳文', password: '3636123456s', role: 'admin', approved: true, createdAt: new Date().toISOString() }];
+      localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+    }
+    _usersCache = users;
+    _cacheTimestamp = Date.now();
+    return users;
+  }
 }
 
-function saveAuthUsers(users) {
-  localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+async function getAuthUsers() {
+  return await refreshUsersCache();
+}
+
+async function saveAuthUsers(_users) {
+  // No-op: individual operations (register/approve/delete) are pushed directly to API.
+  // This function exists only for backward compatibility.
+  _usersCache = null; // Invalidate cache
+  _cacheTimestamp = 0;
 }
 
 function getCurrentUser() {
@@ -1353,7 +1469,7 @@ function switchAuthMode(mode) {
   document.getElementById('reg-info').style.display = 'none';
 }
 
-function doLogin() {
+async function doLogin() {
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-error');
@@ -1364,28 +1480,34 @@ function doLogin() {
     return;
   }
 
-  const users = getAuthUsers();
-  const user = users.find(u => u.username === username && u.password === password);
+  errEl.textContent = '正在验证...';
+  errEl.classList.add('show');
 
-  if (!user) {
-    errEl.textContent = '用户名或密码错误';
-    errEl.classList.add('show');
-    return;
+  try {
+    const users = await getAuthUsers();
+    const user = users.find(u => u.username === username && u.password === password);
+
+    if (!user) {
+      errEl.textContent = '用户名或密码错误';
+      return;
+    }
+
+    if (!user.approved) {
+      errEl.textContent = '您的账户尚未通过管理员审批，请耐心等待';
+      return;
+    }
+
+    setCurrentUser(user);
+    document.getElementById('auth-overlay').classList.add('hidden');
+    updateUserUI();
+    loadProjects();
+  } catch (e) {
+    console.error('Login error:', e);
+    errEl.textContent = '无法连接服务器，请检查网络后重试';
   }
-
-  if (!user.approved) {
-    errEl.textContent = '您的账户尚未通过管理员审批，请耐心等待';
-    errEl.classList.add('show');
-    return;
-  }
-
-  setCurrentUser(user);
-  document.getElementById('auth-overlay').classList.add('hidden');
-  updateUserUI();
-  loadProjects();
 }
 
-function doRegister() {
+async function doRegister() {
   const username = document.getElementById('reg-username').value.trim();
   const password = document.getElementById('reg-password').value;
   const password2 = document.getElementById('reg-password2').value;
@@ -1419,40 +1541,54 @@ function doRegister() {
     return;
   }
 
-  const users = getAuthUsers();
-  if (users.find(u => u.username === username)) {
-    errEl.textContent = '该用户名已被注册';
-    errEl.classList.add('show');
-    return;
+  errEl.textContent = '正在注册...';
+  errEl.classList.add('show');
+  infoEl.style.display = 'none';
+
+  try {
+    // Check for duplicate username against DB
+    const users = await getAuthUsers();
+    if (users.find(u => u.username === username)) {
+      errEl.textContent = '该用户名已被注册';
+      return;
+    }
+
+    // Generate a unique ID using timestamp + random
+    const newUserId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+
+    // Insert to Supabase
+    await apiInsertUser({
+      id: newUserId,
+      username: username,
+      password: password,
+      role: 'user',
+      approved: false,
+      created_at: new Date().toISOString()
+    });
+
+    // Invalidate cache so next getAuthUsers() pulls fresh data
+    _usersCache = null;
+    _cacheTimestamp = 0;
+
+    // Show success and switch to login
+    errEl.classList.remove('show');
+    infoEl.textContent = '注册成功！请等待管理员审批后登录。';
+    infoEl.style.display = 'block';
+
+    // Clear form
+    document.getElementById('reg-username').value = '';
+    document.getElementById('reg-password').value = '';
+    document.getElementById('reg-password2').value = '';
+
+    // Switch to login after 2 seconds
+    setTimeout(() => {
+      infoEl.style.display = 'none';
+      switchAuthMode('login');
+    }, 2000);
+  } catch (e) {
+    console.error('Registration error:', e);
+    errEl.textContent = '注册失败，请检查网络连接后重试';
   }
-
-  // Create new user (pending approval)
-  const newUser = {
-    id: Date.now(),
-    username: username,
-    password: password,
-    role: 'user',
-    approved: false,
-    createdAt: new Date().toISOString()
-  };
-  users.push(newUser);
-  saveAuthUsers(users);
-
-  // Show success and switch to login
-  errEl.classList.remove('show');
-  infoEl.textContent = '注册成功！请等待管理员审批后登录。';
-  infoEl.style.display = 'block';
-
-  // Clear form
-  document.getElementById('reg-username').value = '';
-  document.getElementById('reg-password').value = '';
-  document.getElementById('reg-password2').value = '';
-
-  // Switch to login after 2 seconds
-  setTimeout(() => {
-    infoEl.style.display = 'none';
-    switchAuthMode('login');
-  }, 2000);
 }
 
 function doLogout() {
@@ -1471,6 +1607,14 @@ function doLogout() {
   renderTable([]);
   updateUserUI();
   if (currentTab === 'users') switchTab('all');
+
+  // Clean up realtime subscription
+  if (realtimeChannel) {
+    getSupabase().removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  const rtEl = document.getElementById('rt-status');
+  if (rtEl) { rtEl.innerHTML = '📡 未连接'; rtEl.style.color = 'var(--text-secondary)'; }
 }
 
 function updateUserUI() {
@@ -1515,119 +1659,143 @@ function updateUserUI() {
 }
 
 // ===== User Management =====
-function renderUserManagement() {
-  const users = getAuthUsers();
+async function renderUserManagement() {
+  document.getElementById('users-count').textContent = '加载中...';
   const tbody = document.getElementById('users-body');
-  document.getElementById('users-count').textContent = '共 ' + users.length + ' 人';
+  tbody.innerHTML = '';
 
-  if (users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-icon">👥</div><h3>暂无用户数据</h3></td></tr>';
-    return;
-  }
+  try {
+    const users = await getAuthUsers();
+    document.getElementById('users-count').textContent = '共 ' + users.length + ' 人';
 
-  const currentUser = getCurrentUser();
-
-  tbody.innerHTML = users.map(u => {
-    const roleLabel = u.role === 'admin' ? '主管理员' : u.role === 'sub_admin' ? '子管理员' : '普通用户';
-    const statusHtml = u.approved
-      ? '<span class="approved-badge">已授权</span>'
-      : '<span class="pending-badge">待审批</span>';
-
-    let actions = '';
-    if (currentUser && currentUser.role === 'admin' && u.username !== currentUser.username) {
-      // Approve/Reject
-      if (!u.approved) {
-        actions += `<button class="btn btn-outline btn-sm" style="color:var(--success);border-color:var(--success);" onclick="approveUser(${u.id})">✓ 审批通过</button> `;
-        actions += `<button class="btn btn-danger btn-sm" onclick="rejectUser(${u.id})">✕ 拒绝</button> `;
-      } else {
-        // Promote/Demote
-        if (u.role === 'user') {
-          actions += `<button class="btn btn-outline btn-sm" onclick="promoteUser(${u.id})">⬆ 设为子管理员</button> `;
-        } else if (u.role === 'sub_admin') {
-          actions += `<button class="btn btn-outline btn-sm" onclick="demoteUser(${u.id})">⬇ 取消管理员</button> `;
-        }
-        // Delete
-        actions += `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${escJs(u.username)}')">🗑️</button>`;
-      }
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-icon">👥</div><h3>暂无用户数据</h3></td></tr>';
+      return;
     }
 
-    const isSelf = currentUser && u.username === currentUser.username;
+    const currentUser = getCurrentUser();
 
-    return `
-      <tr>
-        <td style="font-weight:500;">${esc(u.username)}${isSelf ? ' <span style="font-size:11px;color:var(--text-secondary);">(当前)</span>' : ''}</td>
-        <td>${roleLabel}</td>
-        <td>${statusHtml}</td>
-        <td>${new Date(u.createdAt).toLocaleString('zh-CN')}</td>
-        <td>${actions}</td>
-      </tr>`;
-  }).join('');
+    tbody.innerHTML = users.map(u => {
+      const roleLabel = u.role === 'admin' ? '主管理员' : u.role === 'sub_admin' ? '子管理员' : '普通用户';
+      const statusHtml = u.approved
+        ? '<span class="approved-badge">已授权</span>'
+        : '<span class="pending-badge">待审批</span>';
+
+      let actions = '';
+      if (currentUser && currentUser.role === 'admin' && u.username !== currentUser.username) {
+        if (!u.approved) {
+          actions += `<button class="btn btn-outline btn-sm" style="color:var(--success);border-color:var(--success);" onclick="approveUser(${u.id})">✓ 审批通过</button> `;
+          actions += `<button class="btn btn-danger btn-sm" onclick="rejectUser(${u.id})">✕ 拒绝</button> `;
+        } else {
+          if (u.role === 'user') {
+            actions += `<button class="btn btn-outline btn-sm" onclick="promoteUser(${u.id})">⬆ 设为子管理员</button> `;
+          } else if (u.role === 'sub_admin') {
+            actions += `<button class="btn btn-outline btn-sm" onclick="demoteUser(${u.id})">⬇ 取消管理员</button> `;
+          }
+          actions += `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${escJs(u.username)}')">🗑️</button>`;
+        }
+      }
+
+      const isSelf = currentUser && u.username === currentUser.username;
+
+      return `
+        <tr>
+          <td style="font-weight:500;">${esc(u.username)}${isSelf ? ' <span style="font-size:11px;color:var(--text-secondary);">(当前)</span>' : ''}</td>
+          <td>${roleLabel}</td>
+          <td>${statusHtml}</td>
+          <td>${new Date(u.created_at || u.createdAt).toLocaleString('zh-CN')}</td>
+          <td>${actions}</td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('renderUserManagement error:', e);
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-icon">⚠️</div><h3>无法加载用户数据</h3><p>请检查网络连接后刷新页面</p></td></tr>';
+  }
 }
 
-function approveUser(userId) {
+async function approveUser(userId) {
   if (!isAdmin()) return;
-  const users = getAuthUsers();
-  const user = users.find(u => u.id === userId);
-  if (!user) return;
-  user.approved = true;
-  saveAuthUsers(users);
-  renderUserManagement();
-  showToast('用户「' + user.username + '」已审批通过', 'success');
+  try {
+    await apiUpdateUser(userId, { approved: true });
+    _usersCache = null; _cacheTimestamp = 0;
+    const users = await getAuthUsers();
+    const user = users.find(u => u.id === userId);
+    renderUserManagement();
+    showToast('用户「' + (user ? user.username : '') + '」已审批通过', 'success');
+  } catch (e) {
+    console.error('approveUser error:', e);
+    showToast('操作失败，请检查网络连接', 'error');
+  }
 }
 
-function rejectUser(userId) {
+async function rejectUser(userId) {
   if (!isAdmin()) return;
   if (!confirm('确定要拒绝该用户的注册吗？此操作不可撤销。')) return;
-  const users = getAuthUsers();
-  const idx = users.findIndex(u => u.id === userId);
-  if (idx === -1) return;
-  const username = users[idx].username;
-  users.splice(idx, 1);
-  saveAuthUsers(users);
-  renderUserManagement();
-  showToast('已拒绝用户「' + username + '」的注册申请', 'info');
+  try {
+    const users = await getAuthUsers();
+    const user = users.find(u => u.id === userId);
+    const username = user ? user.username : '';
+    await apiDeleteUser(userId);
+    _usersCache = null; _cacheTimestamp = 0;
+    renderUserManagement();
+    showToast('已拒绝用户「' + username + '」的注册申请', 'info');
+  } catch (e) {
+    console.error('rejectUser error:', e);
+    showToast('操作失败，请检查网络连接', 'error');
+  }
 }
 
-function promoteUser(userId) {
+async function promoteUser(userId) {
   if (!isAdmin()) return;
   if (!confirm('确定将该用户设为子管理员吗？子管理员将获得编辑权限。')) return;
-  const users = getAuthUsers();
-  const user = users.find(u => u.id === userId);
-  if (!user) return;
-  user.role = 'sub_admin';
-  saveAuthUsers(users);
-  renderUserManagement();
-  showToast('用户「' + user.username + '」已设为子管理员', 'success');
+  try {
+    await apiUpdateUser(userId, { role: 'sub_admin' });
+    _usersCache = null; _cacheTimestamp = 0;
+    const users = await getAuthUsers();
+    const user = users.find(u => u.id === userId);
+    renderUserManagement();
+    showToast('用户「' + (user ? user.username : '') + '」已设为子管理员', 'success');
+  } catch (e) {
+    console.error('promoteUser error:', e);
+    showToast('操作失败，请检查网络连接', 'error');
+  }
 }
 
-function demoteUser(userId) {
+async function demoteUser(userId) {
   if (!isAdmin()) return;
   if (!confirm('确定取消该用户的子管理员权限吗？')) return;
-  const users = getAuthUsers();
-  const user = users.find(u => u.id === userId);
-  if (!user) return;
-  user.role = 'user';
-  saveAuthUsers(users);
-  renderUserManagement();
-  showToast('已取消「' + user.username + '」的子管理员权限', 'info');
+  try {
+    await apiUpdateUser(userId, { role: 'user' });
+    _usersCache = null; _cacheTimestamp = 0;
+    const users = await getAuthUsers();
+    const user = users.find(u => u.id === userId);
+    renderUserManagement();
+    showToast('已取消「' + (user ? user.username : '') + '」的子管理员权限', 'info');
+  } catch (e) {
+    console.error('demoteUser error:', e);
+    showToast('操作失败，请检查网络连接', 'error');
+  }
 }
 
-function deleteUser(userId, username) {
+async function deleteUser(userId, username) {
   if (!isAdmin()) return;
   if (!confirm('确定要删除用户「' + username + '」吗？此操作不可撤销。')) return;
-  const users = getAuthUsers();
-  const idx = users.findIndex(u => u.id === userId);
-  if (idx === -1) return;
-  // Check if user is currently logged in
   const currentUser = getCurrentUser();
-  if (currentUser && users[idx].username === currentUser.username) {
-    showToast('不能删除自己的账户', 'error');
-    return;
+  try {
+    const users = await getAuthUsers();
+    const target = users.find(u => u.id === userId);
+    if (target && currentUser && target.username === currentUser.username) {
+      showToast('不能删除自己的账户', 'error');
+      return;
+    }
+    await apiDeleteUser(userId);
+    _usersCache = null; _cacheTimestamp = 0;
+    renderUserManagement();
+    showToast('已删除用户「' + username + '」', 'info');
+  } catch (e) {
+    console.error('deleteUser error:', e);
+    showToast('操作失败，请检查网络连接', 'error');
   }
-  users.splice(idx, 1);
-  saveAuthUsers(users);
-  renderUserManagement();
-  showToast('已删除用户「' + username + '」', 'info');
 }
 
 // ===== App State =====
@@ -1640,9 +1808,9 @@ let sortAsc = false;
 let deleteTargetId = null;
 
 // ===== Init =====
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize auth system
-  initAuthUsers();
+document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize auth system (sync default admin to DB)
+  await initAuthUsers();
 
   // Check if already logged in
   const user = getCurrentUser();
@@ -1657,6 +1825,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('api-key-input').value = ANON_KEY;
     if (ANON_KEY) {
       loadProjects();
+      initRealtime();
     }
   } else {
     // Show login
@@ -1676,7 +1845,10 @@ function saveApiKey() {
   if (!ANON_KEY) { showToast('请输入 API Key', 'error'); return; }
   localStorage.setItem('supabase_anon_key', ANON_KEY);
   showToast('API Key 已保存', 'success');
+  // Recreate supabase client with new key
+  supabaseClient = null;
   loadProjects();
+  initRealtime();
 }
 
 function getHeaders() {
@@ -1698,6 +1870,7 @@ async function testConnection() {
       showToast('连接成功！数据库响应正常', 'success');
       document.getElementById('db-status').innerHTML = '🟢 已连接';
       loadProjects();
+      initRealtime();
     } else {
       const err = await resp.json();
       showToast('连接失败: ' + (err.message || resp.statusText), 'error');
@@ -1731,6 +1904,78 @@ async function loadProjects() {
   } catch(e) {
     console.error('Load error:', e);
     document.getElementById('db-status').innerHTML = '🔴 网络错误';
+  }
+}
+
+// ===== Real-time Sync =====
+function initRealtime() {
+  // Clean up existing subscription
+  if (realtimeChannel) {
+    getSupabase().removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+
+  if (!ANON_KEY) return;
+
+  const rtEl = document.getElementById('rt-status');
+  if (rtEl) rtEl.innerHTML = '📡 连接中...';
+
+  try {
+    const client = getSupabase();
+    realtimeChannel = client
+      .channel('legal-projects-changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: TABLE },
+        (payload) => {
+          handleRealtimeChange(payload);
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Subscribed to legal_projects changes');
+          if (rtEl) { rtEl.innerHTML = '📡 实时同步'; rtEl.style.color = 'var(--success)'; }
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Channel error');
+          if (rtEl) { rtEl.innerHTML = '📡 同步断开'; rtEl.style.color = 'var(--danger)'; }
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime] Subscription timed out, retrying...');
+          if (rtEl) { rtEl.innerHTML = '📡 重连中...'; rtEl.style.color = 'var(--warning)'; }
+          setTimeout(initRealtime, 3000);
+        }
+      });
+  } catch (e) {
+    console.error('[Realtime] Init failed:', e);
+    if (rtEl) { rtEl.innerHTML = '📡 连接失败'; rtEl.style.color = 'var(--danger)'; }
+    setTimeout(initRealtime, 5000);
+  }
+}
+
+function handleRealtimeChange(payload) {
+  const now = Date.now();
+  const isLocal = (now - _localChangeTimestamp) < 2000;
+
+  // Debounce UI refresh: aggregate rapid changes into single refresh
+  if (_realtimeDebounce) clearTimeout(_realtimeDebounce);
+  _realtimeDebounce = setTimeout(() => {
+    loadProjects();
+    _realtimeDebounce = null;
+  }, 300);
+
+  // Only show toast for external (non-local) changes
+  if (!isLocal) {
+    const eventType = payload.eventType;
+    const record = payload.new || payload.old || {};
+    const name = record.project_name || '未知项目';
+    const user = getCurrentUser();
+    const actor = user ? user.username : '系统';
+
+    if (eventType === 'INSERT') {
+      showToast(`🔄 ${actor} 新增了项目「${name}」`, 'info');
+    } else if (eventType === 'UPDATE') {
+      showToast(`🔄 ${actor} 更新了项目「${name}」`, 'info');
+    } else if (eventType === 'DELETE') {
+      showToast(`🔄 ${actor} 删除了项目「${name}」`, 'info');
+    }
   }
 }
 
@@ -2487,6 +2732,7 @@ async function submitForm() {
 
     showToast(isEdit ? '项目更新成功' : '项目创建成功', 'success');
     closeModal();
+    _localChangeTimestamp = Date.now();
     await loadProjects();
   } catch(e) {
     showToast('操作失败: ' + e.message, 'error');
@@ -2521,6 +2767,7 @@ async function confirmDelete() {
     }
     showToast('项目已删除', 'success');
     closeDeleteModal();
+    _localChangeTimestamp = Date.now();
     await loadProjects();
   } catch(e) {
     showToast('删除失败: ' + e.message, 'error');
