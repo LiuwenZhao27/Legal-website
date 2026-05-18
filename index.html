@@ -1,0 +1,2610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公司法务事项管理平台</title>
+<!-- Frappe Gantt -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.min.css">
+<style>
+  /* ===== CSS Reset & Variables ===== */
+  :root {
+    --primary: #1a3a5c;
+    --primary-light: #2c5f8a;
+    --accent: #c9a84c;
+    --accent-light: #f5e6c8;
+    --danger: #d94040;
+    --danger-light: #fde8e8;
+    --success: #2e7d32;
+    --success-light: #e8f5e9;
+    --warning: #e67e22;
+    --warning-light: #fff3e0;
+    --info: #1976d2;
+    --info-light: #e3f2fd;
+    --bg: #f4f5f7;
+    --card-bg: #ffffff;
+    --text: #2c3e50;
+    --text-secondary: #5f6b7a;
+    --border: #e0e4e8;
+    --sidebar-width: 220px;
+    --header-height: 60px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ===== Sidebar ===== */
+  .sidebar {
+    width: var(--sidebar-width);
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+  }
+
+  .sidebar-brand {
+    padding: 20px 16px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: var(--header-height);
+  }
+  .sidebar-brand .icon { font-size: 24px; }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 12px 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-nav .nav-section {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.45);
+    padding: 16px 20px 8px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .sidebar-nav .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
+    border-left: 3px solid transparent;
+    text-decoration: none;
+  }
+  .sidebar-nav .nav-item:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+  }
+  .sidebar-nav .nav-item.active {
+    background: rgba(255,255,255,0.12);
+    color: var(--accent);
+    border-left-color: var(--accent);
+    font-weight: 600;
+  }
+  .sidebar-nav .nav-item .badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: var(--primary);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .sidebar-nav .nav-item .icon { font-size: 18px; width: 22px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ===== Main Content ===== */
+  .main {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    height: var(--header-height);
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .header h1 { font-size: 18px; font-weight: 600; color: var(--primary); }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+
+  /* ===== Content Area ===== */
+  .content { flex: 1; padding: 24px 28px; overflow-y: auto; }
+
+  /* ===== Stats Cards ===== */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: box-shadow 0.2s;
+  }
+  .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .stat-card .stat-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .stat-card .stat-info .stat-value { font-size: 24px; font-weight: 700; }
+  .stat-card .stat-info .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .stat-icon.blue { background: var(--info-light); color: var(--info); }
+  .stat-icon.green { background: var(--success-light); color: var(--success); }
+  .stat-icon.orange { background: var(--warning-light); color: var(--warning); }
+  .stat-icon.red { background: var(--danger-light); color: var(--danger); }
+
+  /* ===== Toolbar ===== */
+  .toolbar {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .toolbar select, .toolbar input {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .toolbar select:focus, .toolbar input:focus { border-color: var(--primary-light); }
+  .toolbar .search-input {
+    min-width: 220px;
+    padding-left: 32px;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") 10px center no-repeat;
+  }
+  .toolbar .date-filter-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+    white-space: nowrap;
+  }
+  .toolbar .date-input {
+    width: 130px;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+  }
+  .toolbar .date-sep {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0 1px;
+  }
+  .toolbar .btn-xs { padding: 3px 7px !important; font-size: 11px !important; }
+  .spacer { flex: 1; }
+  .toolbar .spacer { flex: 1; }
+
+  /* ===== Buttons ===== */
+  .btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+  .btn-outline:hover { background: #f0f4f8; }
+  .btn-outline.active { background: var(--primary); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #c0392b; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-icon { padding: 6px 8px; }
+
+  /* ===== Table ===== */
+  .table-container {
+    background: var(--card-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .table-wrapper { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table thead { background: #fafbfc; }
+  table th {
+    padding: 12px 14px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  table th:hover { color: var(--primary); }
+  table th .sort-arrow { font-size: 10px; margin-left: 3px; }
+  table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f0f2f4;
+    white-space: nowrap;
+  }
+  table tbody tr { transition: background 0.15s; }
+  table tbody tr:hover { background: #f8fafc; }
+  .text-muted { color: var(--text-secondary); }
+  .text-wrap { max-width: 200px; white-space: normal; word-break: break-all; }
+
+  /* ===== Badges ===== */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .badge-blue { background: var(--info-light); color: var(--info); }
+  .badge-green { background: var(--success-light); color: var(--success); }
+  .badge-orange { background: var(--warning-light); color: var(--warning); }
+  .badge-red { background: var(--danger-light); color: var(--danger); }
+  .badge-gray { background: #eee; color: #666; }
+  .badge-gold { background: var(--accent-light); color: #8b6914; }
+
+  .type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .type-badge.routine { background: var(--info-light); color: var(--info); }
+  .type-badge.consult { background: var(--success-light); color: var(--success); }
+  .type-badge.litigation { background: var(--danger-light); color: var(--danger); }
+
+  /* ===== Gantt Chart ===== */
+  .gantt-container {
+    background: var(--card-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    min-height: 400px;
+  }
+  .gantt-container .gantt { overflow-x: auto; }
+  .gantt-container .gantt .bar-label { font-size: 12px; }
+  .gantt-container .gantt .bar-wrapper .bar { border-radius: 3px; }
+  #gantt-chart { width: 100%; min-height: 400px; }
+
+  /* ===== Empty State ===== */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+  .empty-state p { font-size: 13px; max-width: 360px; margin: 0 auto; }
+
+  /* ===== Modal ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 680px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    animation: modalIn 0.25s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 1;
+  }
+  .modal-header h3 { font-size: 17px; font-weight: 600; }
+  .modal-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 22px; color: var(--text-secondary);
+    padding: 4px; line-height: 1;
+  }
+  .modal-close:hover { color: var(--danger); }
+  .modal-body { padding: 24px; }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+  }
+
+  /* ===== Form ===== */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid .full-width { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .form-group label .required { color: var(--danger); }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(44,95,138,0.1);
+  }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+  .form-hint { font-size: 11px; color: var(--text-secondary); }
+
+  /* ===== Toast ===== */
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    max-width: 380px;
+  }
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--danger); }
+  .toast.info { background: var(--info); }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ===== Settings Panel ===== */
+  .settings-bar {
+    background: #fffbe6;
+    border: 1px solid #f5d76e;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .settings-bar input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .settings-bar .btn { font-size: 12px; padding: 6px 14px; }
+
+  /* ===== Ledger Toolbar ===== */
+  .ledger-toolbar {
+    background: #fafbfc;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .ledger-toolbar label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .ledger-toolbar select,
+  .ledger-toolbar input[type="text"] {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .ledger-toolbar select:focus,
+  .ledger-toolbar input[type="text"]:focus {
+    border-color: var(--primary-light);
+  }
+  .ledger-toolbar .date-input {
+    width: 130px;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+  }
+  .ledger-toolbar .date-sep {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0 2px;
+  }
+  .ledger-toolbar .btn-xs {
+    padding: 3px 8px !important;
+    font-size: 11px !important;
+  }
+  .ledger-toolbar .toolbar-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+  .ledger-toolbar .filter-input {
+    width: 130px;
+  }
+
+  /* ===== Ledger Charts ===== */
+  .chart-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    min-height: 280px;
+  }
+  .chart-box canvas { max-height: 300px; }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 1024px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { width: 60px; }
+    .sidebar .nav-item span:not(.icon) { display: none; }
+    .sidebar .nav-section { display: none; }
+    .sidebar-brand span { display: none; }
+    .main { margin-left: 60px; }
+    .stats-row { grid-template-columns: 1fr; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+  }
+
+  /* ===== Auth: Login Overlay ===== */
+  .auth-overlay {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #0d1f35 0%, #1a3a5c 50%, #0d2137 100%);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+  }
+  .auth-overlay.hidden { display: none; }
+
+  .auth-card {
+    background: #fff;
+    border-radius: 16px;
+    width: 420px;
+    max-width: 92vw;
+    padding: 40px 36px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: authIn 0.4s ease;
+  }
+  @keyframes authIn {
+    from { opacity: 0; transform: translateY(24px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .auth-card .auth-logo {
+    text-align: center;
+    font-size: 40px;
+    margin-bottom: 8px;
+  }
+  .auth-card h2 {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+  .auth-card .auth-subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 28px;
+  }
+
+  .auth-card .auth-mode-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .auth-card .auth-mode-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+  .auth-card .auth-mode-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  .auth-card .auth-form { display: flex; flex-direction: column; gap: 16px; }
+  .auth-card .auth-form.hidden { display: none; }
+
+  .auth-card .auth-input-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+    margin-bottom: 5px;
+  }
+  .auth-card .auth-input-group input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .auth-card .auth-input-group input:focus {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(44,95,138,0.1);
+  }
+
+  .auth-card .auth-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--primary);
+    color: #fff;
+    margin-top: 4px;
+  }
+  .auth-card .auth-btn:hover { background: var(--primary-light); }
+  .auth-card .auth-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .auth-card .auth-error {
+    background: var(--danger-light);
+    color: var(--danger);
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    display: none;
+    text-align: center;
+  }
+  .auth-card .auth-error.show { display: block; }
+
+  .auth-card .auth-info {
+    background: var(--info-light);
+    color: var(--info);
+    font-size: 12px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* ===== Sidebar User Area ===== */
+  .sidebar-user {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: default;
+  }
+  .sidebar-user .user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .sidebar-user .user-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .sidebar-user .user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sidebar-user .user-role {
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .sidebar-user .btn-logout {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .sidebar-user .btn-logout:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+  }
+
+  /* ===== User Management ===== */
+  .user-mgmt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .user-mgmt-header h3 { font-size: 16px; font-weight: 600; }
+
+  .user-table td .btn-sm {
+    margin-right: 4px;
+  }
+
+  .user-table .pending-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--warning-light);
+    color: var(--warning);
+  }
+  .user-table .approved-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--success-light);
+    color: var(--success);
+  }
+
+  /* ===== Read-only indicator ===== */
+  .readonly-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--warning-light);
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Auth Overlay ===== -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">⚖️</div>
+    <h2>法务管理平台</h2>
+    <p class="auth-subtitle">注册需经管理员授权方可访问</p>
+
+    <div class="auth-mode-tabs">
+      <div class="auth-mode-tab active" id="tab-login" onclick="switchAuthMode('login')">登 录</div>
+      <div class="auth-mode-tab" id="tab-register" onclick="switchAuthMode('register')">注 册</div>
+    </div>
+
+    <!-- Login Form -->
+    <div class="auth-form" id="auth-form-login">
+      <div class="auth-input-group">
+        <label>用户名</label>
+        <input type="text" id="login-username" placeholder="请输入用户名" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+      </div>
+      <div class="auth-input-group">
+        <label>密码</label>
+        <input type="password" id="login-password" placeholder="请输入密码" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="auth-error" id="login-error"></div>
+      <button class="auth-btn" onclick="doLogin()">登 录</button>
+    </div>
+
+    <!-- Register Form -->
+    <div class="auth-form hidden" id="auth-form-register">
+      <div class="auth-input-group">
+        <label>用户名</label>
+        <input type="text" id="reg-username" placeholder="请设置用户名（3-20位）" autocomplete="off">
+      </div>
+      <div class="auth-input-group">
+        <label>密码</label>
+        <input type="password" id="reg-password" placeholder="请设置密码（至少6位）" autocomplete="new-password" onkeydown="if(event.key==='Enter')document.getElementById('reg-password2').focus()">
+      </div>
+      <div class="auth-input-group">
+        <label>确认密码</label>
+        <input type="password" id="reg-password2" placeholder="请再次输入密码" autocomplete="new-password" onkeydown="if(event.key==='Enter')doRegister()">
+      </div>
+      <div class="auth-error" id="reg-error"></div>
+      <div class="auth-info" id="reg-info" style="display:none;"></div>
+      <button class="auth-btn" onclick="doRegister()">注 册</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Sidebar ===== -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <span class="icon">⚖️</span>
+    <span>法务管理平台</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">项目看板</div>
+    <a class="nav-item active" data-tab="all" onclick="switchTab('all')">
+      <span class="icon">📋</span> <span>全部项目</span> <span class="badge" id="badge-all">0</span>
+    </a>
+    <a class="nav-item" data-tab="routine" onclick="switchTab('routine')">
+      <span class="icon">📁</span> <span>常务法律项目</span> <span class="badge" id="badge-routine">0</span>
+    </a>
+    <a class="nav-item" data-tab="consult" onclick="switchTab('consult')">
+      <span class="icon">💼</span> <span>专项法律咨询</span> <span class="badge" id="badge-consult">0</span>
+    </a>
+    <a class="nav-item" data-tab="litigation" onclick="switchTab('litigation')">
+      <span class="icon">⚖️</span> <span>诉讼专项</span> <span class="badge" id="badge-litigation">0</span>
+    </a>
+    <div class="nav-section">工具</div>
+    <a class="nav-item" data-tab="ledger" onclick="switchTab('ledger')">
+      <span class="icon">💰</span> <span>法务费用台账</span>
+    </a>
+    <a class="nav-item" data-tab="gantt" onclick="switchTab('gantt')">
+      <span class="icon">📊</span> <span>甘特图概览</span>
+    </a>
+    <a class="nav-item" data-tab="users" onclick="switchTab('users')" id="nav-users" style="display:none;">
+      <span class="icon">👥</span> <span>用户管理</span>
+    </a>
+  </nav>
+  <div class="sidebar-user" id="sidebar-user-area">
+    <div class="user-avatar" id="user-avatar">?</div>
+    <div class="user-info">
+      <div class="user-name" id="user-display-name">未登录</div>
+      <div class="user-role" id="user-display-role"></div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()" title="退出登录">退出</button>
+  </div>
+</aside>
+
+<!-- ===== Main ===== -->
+<main class="main">
+  <!-- Header -->
+  <header class="header">
+    <h1 id="page-title">全部项目</h1>
+    <div class="header-actions">
+      <span id="db-status" style="font-size:11px;color:var(--text-secondary);margin-right:12px;">⏳ 未连接</span>
+      <span id="readonly-badge" class="readonly-indicator" style="display:none;">🔒 只读模式</span>
+      <button class="btn btn-outline btn-sm" onclick="toggleSettings()">⚙️ API设置</button>
+      <button class="btn btn-primary" id="btn-add-project" onclick="openAddModal()">+ 新建项目</button>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="content">
+    <!-- API Settings -->
+    <div class="settings-bar" id="settings-bar" style="display:none;">
+      <span>🔑 Supabase Anon Key:</span>
+      <input type="text" id="api-key-input" placeholder="请输入 Supabase anon key...">
+      <button class="btn btn-primary btn-sm" onclick="saveApiKey()">保存</button>
+      <button class="btn btn-outline btn-sm" onclick="testConnection()">测试连接</button>
+      <span style="font-size:11px;color:var(--text-secondary);">
+        在 Supabase Dashboard &gt; Settings &gt; API 中获取
+      </span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon blue">📋</div>
+        <div class="stat-info"><div class="stat-value" id="stat-total">0</div><div class="stat-label">项目总数</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-info"><div class="stat-value" id="stat-active">0</div><div class="stat-label">进行中项目</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon orange">⚖️</div>
+        <div class="stat-info"><div class="stat-value" id="stat-litigation">0</div><div class="stat-label">诉讼专项</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">💰</div>
+        <div class="stat-info"><div class="stat-value" id="stat-unpaid">¥0</div><div class="stat-label">未支付费用</div></div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar" id="filter-bar">
+      <select id="filter-type" onchange="applyFilters()">
+        <option value="">全部类型</option>
+        <option value="常务法律项目">常务法律项目</option>
+        <option value="专项法律咨询">专项法律咨询</option>
+        <option value="诉讼专项">诉讼专项</option>
+      </select>
+      <select id="filter-specific-type" onchange="applyFilters()">
+        <option value="">具体项目类型</option>
+        <option value="法律咨询">法律咨询</option>
+        <option value="公证">公证</option>
+        <option value="委托">委托</option>
+        <option value="函告">函告</option>
+        <option value="诉讼">诉讼</option>
+        <option value="执行">执行</option>
+        <option value="工商">工商</option>
+        <option value="其它">其它</option>
+      </select>
+      <select id="filter-status" onchange="applyFilters()">
+        <option value="">全部状态</option>
+        <option value="筹备中">筹备中</option>
+        <option value="已决策">已决策</option>
+        <option value="诉讼中">诉讼中</option>
+        <option value="执行中">执行中</option>
+        <option value="已结束">已结束</option>
+      </select>
+      <label class="date-filter-label">开始</label>
+      <input type="date" id="filter-date-from" class="date-input" onchange="applyFilters()" title="开始时间从">
+      <span class="date-sep">至</span>
+      <input type="date" id="filter-date-to" class="date-input" onchange="applyFilters()" title="开始时间至">
+      <button class="btn btn-xs btn-outline" onclick="clearDateFilters()" title="清除日期筛选" style="font-size:11px;">✕</button>
+      <input type="text" id="filter-search" class="search-input" placeholder="搜索项目名称或负责人..." oninput="applyFilters()">
+      <span class="spacer"></span>
+      <button class="btn btn-outline btn-sm" id="btn-table-view" onclick="switchView('table')" style="display:none;">📋 表格视图</button>
+      <button class="btn btn-outline btn-sm" id="btn-gantt-view" onclick="switchView('gantt')" style="display:none;">📊 甘特图</button>
+      <button class="btn btn-outline btn-sm" id="btn-ledger-view" onclick="switchView('ledger')" style="display:none;">💰 台账明细</button>
+    </div>
+
+    <!-- Table View -->
+    <div class="table-container" id="table-view">
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortTable('project_name')">项目名称 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('project_type')">项目类型 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('category_tag')">专项名称 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('specific_type')">具体项目类型 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('project_status')">项目状态 <span class="sort-arrow"></span></th>
+              <th id="th-litigation-phase" style="display:none;" onclick="sortTable('litigation_phase')">诉讼阶段 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('start_date')">开始时间 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('end_date')">结束时间 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('person_in_charge')">负责人 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('law_firm')">律师事务所 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('lawyer')">律师 <span class="sort-arrow"></span></th>
+              <th onclick="sortTable('fee')">费用 <span class="sort-arrow"></span></th>
+              <th id="th-fee-status" onclick="sortTable('fee_payment_status')">支付状态 <span class="sort-arrow"></span></th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="14" class="empty-state"><div class="empty-icon">📭</div><h3>暂无数据</h3><p>请先设置 Supabase API Key 并确保数据库已建表</p></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Gantt View -->
+    <div class="gantt-container" id="gantt-view" style="display:none;">
+      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <select id="gantt-filter-type" onchange="renderGantt()" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <option value="">全部类型</option>
+          <option value="常务法律项目">常务法律项目</option>
+          <option value="专项法律咨询">专项法律咨询</option>
+          <option value="诉讼专项">诉讼专项</option>
+        </select>
+        <span style="font-size:11px;color:var(--text-secondary);">开始</span>
+        <input type="date" id="gantt-date-from" onchange="renderGantt()" style="width:130px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;" title="开始时间从">
+        <span style="font-size:11px;color:var(--text-secondary);">至</span>
+        <input type="date" id="gantt-date-to" onchange="renderGantt()" style="width:130px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;" title="开始时间至">
+        <select id="gantt-group" onchange="renderGantt()" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <option value="">不分组</option>
+          <option value="project_type">按项目类型</option>
+          <option value="category_tag">按专项名称</option>
+          <option value="specific_type">按具体项目类型</option>
+        </select>
+      </div>
+      <div id="gantt-chart"></div>
+      <div id="gantt-empty" class="empty-state" style="display:none;">
+        <div class="empty-icon">📊</div><h3>暂无数据</h3><p>请添加项目后查看甘特图</p>
+      </div>
+    </div>
+
+    <!-- Ledger View -->
+    <div class="table-container" id="ledger-view" style="display:none;">
+      <div style="padding:12px 16px;font-size:14px;font-weight:600;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <span>💰 法务费用台账</span>
+        <span style="font-size:13px;font-weight:400;color:var(--text-secondary);" id="ledger-summary"></span>
+      </div>
+      <!-- Ledger Filter Toolbar -->
+      <div class="ledger-toolbar" id="ledger-toolbar">
+        <label>📅 日期</label>
+        <input type="date" id="ledger-date-from" class="date-input" onchange="renderLedger()" title="开始日期">
+        <span class="date-sep">至</span>
+        <input type="date" id="ledger-date-to" class="date-input" onchange="renderLedger()" title="结束日期">
+        <span class="toolbar-divider"></span>
+        <select id="ledger-filter-specific" onchange="renderLedger()" title="具体项目类型">
+          <option value="">全部具体类型</option>
+          <option value="法律咨询">法律咨询</option>
+          <option value="公证">公证</option>
+          <option value="委托">委托</option>
+          <option value="函告">函告</option>
+          <option value="诉讼">诉讼</option>
+          <option value="执行">执行</option>
+          <option value="工商">工商</option>
+          <option value="其它">其它</option>
+        </select>
+        <input type="text" id="ledger-filter-category" class="filter-input" placeholder="🔍 专项名称..." oninput="renderLedgerDebounced()" title="按专项名称筛选">
+        <select id="ledger-filter-firm" onchange="renderLedger()" title="律师事务所">
+          <option value="">全部律所</option>
+        </select>
+        <button class="btn btn-xs btn-outline" onclick="clearLedgerFilters()" title="清除所有筛选">✕ 清除</button>
+        <span style="flex:1;"></span>
+        <span style="font-size:11px;color:var(--text-secondary);" id="ledger-filter-count"></span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>项目名称</th>
+              <th>项目类型</th>
+              <th>专项名称</th>
+              <th>具体项目类型</th>
+              <th>费用 (¥)</th>
+              <th>支付状态</th>
+              <th>支付时间</th>
+              <th>负责人</th>
+              <th>律师事务所</th>
+              <th>律师</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody id="ledger-body">
+            <tr><td colspan="11" class="empty-state"><div class="empty-icon">💰</div><h3>暂无费用记录</h3></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- Ledger Charts -->
+      <div id="ledger-charts" style="display:none;padding:20px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div class="chart-box">
+            <h4 style="font-size:14px;margin-bottom:12px;color:var(--text);">按律师事务所统计费用</h4>
+            <canvas id="chart-law-firm"></canvas>
+          </div>
+          <div class="chart-box">
+            <h4 style="font-size:14px;margin-bottom:12px;color:var(--text);">专项名称-金额统计</h4>
+            <canvas id="chart-category-fee"></canvas>
+          </div>
+          <div class="chart-box">
+            <h4 style="font-size:14px;margin-bottom:12px;color:var(--text);">支付状态-支付金额统计</h4>
+            <canvas id="chart-pay-status"></canvas>
+          </div>
+          <div class="chart-box">
+            <h4 style="font-size:14px;margin-bottom:12px;color:var(--text);">时间-金额统计（按月）</h4>
+            <canvas id="chart-time-fee"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Management View -->
+    <div class="table-container" id="users-view" style="display:none;">
+      <div style="padding:12px 16px;font-size:14px;font-weight:600;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <span>👥 用户管理</span>
+        <span style="font-size:13px;font-weight:400;color:var(--text-secondary);" id="users-count"></span>
+      </div>
+      <div class="table-wrapper">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>用户名</th>
+              <th>角色</th>
+              <th>状态</th>
+              <th>注册时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="users-body">
+            <tr><td colspan="5" class="empty-state"><div class="empty-icon">👥</div><h3>暂无用户数据</h3></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ===== Add/Edit Modal ===== -->
+<div class="modal-overlay" id="project-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">新建项目</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="project-form" onsubmit="return submitForm(event)">
+        <input type="hidden" id="edit-id">
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label><span class="required">*</span> 项目名称</label>
+            <input type="text" id="form-project-name" required placeholder="请输入项目名称">
+          </div>
+          <div class="form-group">
+            <label><span class="required">*</span> 项目类型</label>
+            <select id="form-project-type" required onchange="onTypeChange()">
+              <option value="">请选择</option>
+              <option value="常务法律项目">常务法律项目</option>
+              <option value="专项法律咨询">专项法律咨询</option>
+              <option value="诉讼专项">诉讼专项</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>专项名称</label>
+            <input type="text" id="form-category-tag" placeholder="如：兴远项目、露香园项目...">
+            <span class="form-hint">以诉讼为主导、包含多个子项目的大专项名称</span>
+          </div>
+          <div class="form-group">
+            <label><span class="required">*</span> 具体项目类型</label>
+            <select id="form-specific-type" required>
+              <option value="">请选择</option>
+              <option value="法律咨询">法律咨询</option>
+              <option value="公证">公证</option>
+              <option value="委托">委托</option>
+              <option value="函告">函告</option>
+              <option value="诉讼">诉讼</option>
+              <option value="执行">执行</option>
+              <option value="工商">工商</option>
+              <option value="其它">其它</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label><span class="required">*</span> 项目状态</label>
+            <select id="form-project-status" required>
+              <option value="筹备中">筹备中</option>
+              <option value="已决策">已决策</option>
+              <option value="诉讼中">诉讼中</option>
+              <option value="执行中">执行中</option>
+              <option value="已结束">已结束</option>
+            </select>
+          </div>
+          <div class="form-group" id="group-litigation-phase" style="display:none;">
+            <label>诉讼阶段</label>
+            <select id="form-litigation-phase">
+              <option value="">请选择</option>
+              <option value="一审起诉">一审起诉</option>
+              <option value="一审审理">一审审理</option>
+              <option value="二审上诉">二审上诉</option>
+              <option value="二审审理">二审审理</option>
+              <option value="再审">再审</option>
+              <option value="执行阶段">执行阶段</option>
+              <option value="已结案">已结案</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label><span class="required">*</span> 开始时间</label>
+            <input type="date" id="form-start-date" required>
+          </div>
+          <div class="form-group">
+            <label>结束时间</label>
+            <input type="date" id="form-end-date">
+            <span class="form-hint">如不确定可留空</span>
+          </div>
+          <div class="form-group">
+            <label>项目负责人</label>
+            <input type="text" id="form-person" placeholder="请输入负责人姓名">
+          </div>
+          <div class="form-group">
+            <label>律师事务所</label>
+            <input type="text" id="form-law-firm" placeholder="如：金杜律师事务所">
+          </div>
+          <div class="form-group">
+            <label>律师</label>
+            <input type="text" id="form-lawyer" placeholder="如：张三律师">
+          </div>
+          <div class="form-group">
+            <label>项目费用 (¥)</label>
+            <input type="number" id="form-fee" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>费用支付状态</label>
+            <select id="form-fee-status">
+              <option value="未支付">未支付</option>
+              <option value="已支付">已支付</option>
+              <option value="已确认">已确认</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>费用支付时间</label>
+            <input type="date" id="form-fee-date">
+            <span class="form-hint">实际支付日期</span>
+          </div>
+          <div class="form-group full-width">
+            <label>项目备注</label>
+            <textarea id="form-notes" placeholder="其他需要记录的信息..."></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="btn-submit" onclick="submitForm()">确认提交</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Delete Confirm Modal ===== -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal" style="width:420px;">
+    <div class="modal-header">
+      <h3>⚠️ 确认删除</h3>
+      <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;">确定要删除项目 <strong id="delete-project-name"></strong> 吗？</p>
+      <p style="font-size:12px;color:var(--danger);margin-top:8px;">此操作不可撤销。</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeDeleteModal()">取消</button>
+      <button class="btn btn-danger" id="btn-delete-confirm" onclick="confirmDelete()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Toast Container ===== -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Frappe Gantt CSS & JS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+// ===== Supabase Configuration =====
+const SUPABASE_URL = 'https://rsjrpqebnzwvxxqskzaj.supabase.co';
+const TABLE = 'legal_projects';
+const DEFAULT_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzanJwcWVibnp3dnh4cXNremFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MzIwMTgsImV4cCI6MjA5NDQwODAxOH0._kKjfutrdgu5t2dVrR2T_1pGQ6r3K7cv8I88eL2glrw';
+let ANON_KEY = localStorage.getItem('supabase_anon_key') || DEFAULT_ANON_KEY;
+
+// ===== Authentication System =====
+const AUTH_USERS_KEY = 'auth_users';
+const AUTH_SESSION_KEY = 'auth_session';
+
+// Initialize default admin if not exists
+function initAuthUsers() {
+  let users = JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]');
+  if (users.length === 0) {
+    users = [{
+      id: 1,
+      username: '柳文',
+      password: '3636123456s',
+      role: 'admin',
+      approved: true,
+      createdAt: new Date().toISOString()
+    }];
+    localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+  }
+  return users;
+}
+
+function getAuthUsers() {
+  return JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]');
+}
+
+function saveAuthUsers(users) {
+  localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+}
+
+function getCurrentUser() {
+  const session = localStorage.getItem(AUTH_SESSION_KEY);
+  return session ? JSON.parse(session) : null;
+}
+
+function setCurrentUser(user) {
+  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({
+    username: user.username,
+    role: user.role,
+    approved: user.approved
+  }));
+}
+
+function clearSession() {
+  localStorage.removeItem(AUTH_SESSION_KEY);
+}
+
+function isLoggedIn() {
+  const user = getCurrentUser();
+  return user && user.approved;
+}
+
+function isAdmin() {
+  const user = getCurrentUser();
+  return user && user.role === 'admin';
+}
+
+function canEdit() {
+  const user = getCurrentUser();
+  return user && (user.role === 'admin' || user.role === 'sub_admin');
+}
+
+// ===== Auth UI =====
+let authMode = 'login';
+
+function switchAuthMode(mode) {
+  authMode = mode;
+  document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+  document.getElementById('tab-register').classList.toggle('active', mode === 'register');
+  document.getElementById('auth-form-login').classList.toggle('hidden', mode !== 'login');
+  document.getElementById('auth-form-register').classList.toggle('hidden', mode !== 'register');
+  document.getElementById('login-error').classList.remove('show');
+  document.getElementById('reg-error').classList.remove('show');
+  document.getElementById('reg-info').style.display = 'none';
+}
+
+function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+
+  if (!username || !password) {
+    errEl.textContent = '请输入用户名和密码';
+    errEl.classList.add('show');
+    return;
+  }
+
+  const users = getAuthUsers();
+  const user = users.find(u => u.username === username && u.password === password);
+
+  if (!user) {
+    errEl.textContent = '用户名或密码错误';
+    errEl.classList.add('show');
+    return;
+  }
+
+  if (!user.approved) {
+    errEl.textContent = '您的账户尚未通过管理员审批，请耐心等待';
+    errEl.classList.add('show');
+    return;
+  }
+
+  setCurrentUser(user);
+  document.getElementById('auth-overlay').classList.add('hidden');
+  updateUserUI();
+  loadProjects();
+}
+
+function doRegister() {
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const password2 = document.getElementById('reg-password2').value;
+  const errEl = document.getElementById('reg-error');
+  const infoEl = document.getElementById('reg-info');
+
+  // Validation
+  if (!username || !password || !password2) {
+    errEl.textContent = '请填写所有字段';
+    errEl.classList.add('show');
+    return;
+  }
+  if (username.length < 3 || username.length > 20) {
+    errEl.textContent = '用户名长度需在3-20个字符之间';
+    errEl.classList.add('show');
+    return;
+  }
+  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(username)) {
+    errEl.textContent = '用户名只能包含中英文、数字和下划线';
+    errEl.classList.add('show');
+    return;
+  }
+  if (password.length < 6) {
+    errEl.textContent = '密码长度至少6位';
+    errEl.classList.add('show');
+    return;
+  }
+  if (password !== password2) {
+    errEl.textContent = '两次输入的密码不一致';
+    errEl.classList.add('show');
+    return;
+  }
+
+  const users = getAuthUsers();
+  if (users.find(u => u.username === username)) {
+    errEl.textContent = '该用户名已被注册';
+    errEl.classList.add('show');
+    return;
+  }
+
+  // Create new user (pending approval)
+  const newUser = {
+    id: Date.now(),
+    username: username,
+    password: password,
+    role: 'user',
+    approved: false,
+    createdAt: new Date().toISOString()
+  };
+  users.push(newUser);
+  saveAuthUsers(users);
+
+  // Show success and switch to login
+  errEl.classList.remove('show');
+  infoEl.textContent = '注册成功！请等待管理员审批后登录。';
+  infoEl.style.display = 'block';
+
+  // Clear form
+  document.getElementById('reg-username').value = '';
+  document.getElementById('reg-password').value = '';
+  document.getElementById('reg-password2').value = '';
+
+  // Switch to login after 2 seconds
+  setTimeout(() => {
+    infoEl.style.display = 'none';
+    switchAuthMode('login');
+  }, 2000);
+}
+
+function doLogout() {
+  if (!confirm('确定要退出登录吗？')) return;
+  clearSession();
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').classList.remove('show');
+  switchAuthMode('login');
+
+  // Reset UI
+  allProjects = [];
+  filteredProjects = [];
+  updateStats();
+  renderTable([]);
+  updateUserUI();
+  if (currentTab === 'users') switchTab('all');
+}
+
+function updateUserUI() {
+  const user = getCurrentUser();
+  const displayName = document.getElementById('user-display-name');
+  const displayRole = document.getElementById('user-display-role');
+  const avatar = document.getElementById('user-avatar');
+  const navUsers = document.getElementById('nav-users');
+  const readonlyBadge = document.getElementById('readonly-badge');
+  const btnAdd = document.getElementById('btn-add-project');
+
+  if (user) {
+    displayName.textContent = user.username;
+    avatar.textContent = user.username.charAt(0);
+    if (user.role === 'admin') {
+      displayRole.textContent = '主管理员';
+      navUsers.style.display = '';
+    } else if (user.role === 'sub_admin') {
+      displayRole.textContent = '子管理员';
+      navUsers.style.display = 'none';
+    } else {
+      displayRole.textContent = '普通用户';
+      navUsers.style.display = 'none';
+    }
+
+    // Show/hide readonly badge and add button
+    if (canEdit()) {
+      readonlyBadge.style.display = 'none';
+      btnAdd.style.display = '';
+    } else {
+      readonlyBadge.style.display = 'inline-flex';
+      btnAdd.style.display = 'none';
+    }
+  } else {
+    displayName.textContent = '未登录';
+    displayRole.textContent = '';
+    avatar.textContent = '?';
+    navUsers.style.display = 'none';
+    readonlyBadge.style.display = 'none';
+    btnAdd.style.display = 'none';
+  }
+}
+
+// ===== User Management =====
+function renderUserManagement() {
+  const users = getAuthUsers();
+  const tbody = document.getElementById('users-body');
+  document.getElementById('users-count').textContent = '共 ' + users.length + ' 人';
+
+  if (users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-icon">👥</div><h3>暂无用户数据</h3></td></tr>';
+    return;
+  }
+
+  const currentUser = getCurrentUser();
+
+  tbody.innerHTML = users.map(u => {
+    const roleLabel = u.role === 'admin' ? '主管理员' : u.role === 'sub_admin' ? '子管理员' : '普通用户';
+    const statusHtml = u.approved
+      ? '<span class="approved-badge">已授权</span>'
+      : '<span class="pending-badge">待审批</span>';
+
+    let actions = '';
+    if (currentUser && currentUser.role === 'admin' && u.username !== currentUser.username) {
+      // Approve/Reject
+      if (!u.approved) {
+        actions += `<button class="btn btn-outline btn-sm" style="color:var(--success);border-color:var(--success);" onclick="approveUser(${u.id})">✓ 审批通过</button> `;
+        actions += `<button class="btn btn-danger btn-sm" onclick="rejectUser(${u.id})">✕ 拒绝</button> `;
+      } else {
+        // Promote/Demote
+        if (u.role === 'user') {
+          actions += `<button class="btn btn-outline btn-sm" onclick="promoteUser(${u.id})">⬆ 设为子管理员</button> `;
+        } else if (u.role === 'sub_admin') {
+          actions += `<button class="btn btn-outline btn-sm" onclick="demoteUser(${u.id})">⬇ 取消管理员</button> `;
+        }
+        // Delete
+        actions += `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${escJs(u.username)}')">🗑️</button>`;
+      }
+    }
+
+    const isSelf = currentUser && u.username === currentUser.username;
+
+    return `
+      <tr>
+        <td style="font-weight:500;">${esc(u.username)}${isSelf ? ' <span style="font-size:11px;color:var(--text-secondary);">(当前)</span>' : ''}</td>
+        <td>${roleLabel}</td>
+        <td>${statusHtml}</td>
+        <td>${new Date(u.createdAt).toLocaleString('zh-CN')}</td>
+        <td>${actions}</td>
+      </tr>`;
+  }).join('');
+}
+
+function approveUser(userId) {
+  if (!isAdmin()) return;
+  const users = getAuthUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return;
+  user.approved = true;
+  saveAuthUsers(users);
+  renderUserManagement();
+  showToast('用户「' + user.username + '」已审批通过', 'success');
+}
+
+function rejectUser(userId) {
+  if (!isAdmin()) return;
+  if (!confirm('确定要拒绝该用户的注册吗？此操作不可撤销。')) return;
+  const users = getAuthUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return;
+  const username = users[idx].username;
+  users.splice(idx, 1);
+  saveAuthUsers(users);
+  renderUserManagement();
+  showToast('已拒绝用户「' + username + '」的注册申请', 'info');
+}
+
+function promoteUser(userId) {
+  if (!isAdmin()) return;
+  if (!confirm('确定将该用户设为子管理员吗？子管理员将获得编辑权限。')) return;
+  const users = getAuthUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return;
+  user.role = 'sub_admin';
+  saveAuthUsers(users);
+  renderUserManagement();
+  showToast('用户「' + user.username + '」已设为子管理员', 'success');
+}
+
+function demoteUser(userId) {
+  if (!isAdmin()) return;
+  if (!confirm('确定取消该用户的子管理员权限吗？')) return;
+  const users = getAuthUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return;
+  user.role = 'user';
+  saveAuthUsers(users);
+  renderUserManagement();
+  showToast('已取消「' + user.username + '」的子管理员权限', 'info');
+}
+
+function deleteUser(userId, username) {
+  if (!isAdmin()) return;
+  if (!confirm('确定要删除用户「' + username + '」吗？此操作不可撤销。')) return;
+  const users = getAuthUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return;
+  // Check if user is currently logged in
+  const currentUser = getCurrentUser();
+  if (currentUser && users[idx].username === currentUser.username) {
+    showToast('不能删除自己的账户', 'error');
+    return;
+  }
+  users.splice(idx, 1);
+  saveAuthUsers(users);
+  renderUserManagement();
+  showToast('已删除用户「' + username + '」', 'info');
+}
+
+// ===== App State =====
+let allProjects = [];
+let filteredProjects = [];
+let currentTab = 'all';
+let currentView = 'table';
+let sortField = 'start_date';
+let sortAsc = false;
+let deleteTargetId = null;
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize auth system
+  initAuthUsers();
+
+  // Check if already logged in
+  const user = getCurrentUser();
+  if (user && user.approved) {
+    document.getElementById('auth-overlay').classList.add('hidden');
+    updateUserUI();
+
+    // Load API key
+    if (!localStorage.getItem('supabase_anon_key')) {
+      localStorage.setItem('supabase_anon_key', ANON_KEY);
+    }
+    document.getElementById('api-key-input').value = ANON_KEY;
+    if (ANON_KEY) {
+      loadProjects();
+    }
+  } else {
+    // Show login
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    updateUserUI();
+  }
+});
+
+// ===== API Key Management =====
+function toggleSettings() {
+  const bar = document.getElementById('settings-bar');
+  bar.style.display = bar.style.display === 'none' ? 'flex' : 'none';
+}
+
+function saveApiKey() {
+  ANON_KEY = document.getElementById('api-key-input').value.trim();
+  if (!ANON_KEY) { showToast('请输入 API Key', 'error'); return; }
+  localStorage.setItem('supabase_anon_key', ANON_KEY);
+  showToast('API Key 已保存', 'success');
+  loadProjects();
+}
+
+function getHeaders() {
+  return {
+    'apikey': ANON_KEY,
+    'Authorization': 'Bearer ' + ANON_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+  };
+}
+
+async function testConnection() {
+  if (!ANON_KEY) { showToast('请先输入 API Key', 'error'); return; }
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?limit=1`, {
+      headers: getHeaders()
+    });
+    if (resp.ok) {
+      showToast('连接成功！数据库响应正常', 'success');
+      document.getElementById('db-status').innerHTML = '🟢 已连接';
+      loadProjects();
+    } else {
+      const err = await resp.json();
+      showToast('连接失败: ' + (err.message || resp.statusText), 'error');
+      document.getElementById('db-status').innerHTML = '🔴 连接失败';
+    }
+  } catch(e) {
+    showToast('网络错误: ' + e.message, 'error');
+    document.getElementById('db-status').innerHTML = '🔴 连接失败';
+  }
+}
+
+// ===== Data Loading =====
+async function loadProjects() {
+  if (!ANON_KEY) return;
+  try {
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/${TABLE}?select=*&order=start_date.desc`,
+      { headers: getHeaders() }
+    );
+    if (!resp.ok) {
+      const err = await resp.json();
+      console.error('Load error:', err);
+      document.getElementById('db-status').innerHTML = '🔴 ' + (err.message || '加载失败');
+      return;
+    }
+    allProjects = await resp.json();
+    document.getElementById('db-status').innerHTML = '🟢 已连接 (' + allProjects.length + '条)';
+    updateStats();
+    updateBadges();
+    applyFilters();
+  } catch(e) {
+    console.error('Load error:', e);
+    document.getElementById('db-status').innerHTML = '🔴 网络错误';
+  }
+}
+
+// ===== Stats =====
+function updateStats() {
+  document.getElementById('stat-total').textContent = allProjects.length;
+  const active = allProjects.filter(p => !['已结束'].includes(p.project_status));
+  document.getElementById('stat-active').textContent = active.length;
+  const litigations = allProjects.filter(p => p.project_type === '诉讼专项');
+  document.getElementById('stat-litigation').textContent = litigations.length;
+  const unpaid = allProjects.filter(p => p.fee_payment_status === '未支付');
+  const totalUnpaid = unpaid.reduce((sum, p) => sum + (parseFloat(p.fee) || 0), 0);
+  document.getElementById('stat-unpaid').textContent = '¥' + totalUnpaid.toLocaleString('zh-CN');
+}
+
+function updateBadges() {
+  document.getElementById('badge-all').textContent = allProjects.length;
+  document.getElementById('badge-routine').textContent = allProjects.filter(p => p.project_type === '常务法律项目').length;
+  document.getElementById('badge-consult').textContent = allProjects.filter(p => p.project_type === '专项法律咨询').length;
+  document.getElementById('badge-litigation').textContent = allProjects.filter(p => p.project_type === '诉讼专项').length;
+}
+
+// ===== Tab Switching =====
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const targetNav = document.querySelector(`[data-tab="${tab}"]`);
+  if (targetNav) targetNav.classList.add('active');
+
+  const titles = {
+    'all': '全部项目', 'routine': '常务法律项目', 'consult': '专项法律咨询',
+    'litigation': '诉讼专项', 'ledger': '法务费用台账', 'gantt': '甘特图概览',
+    'users': '用户管理'
+  };
+  document.getElementById('page-title').textContent = titles[tab] || '全部项目';
+
+  // Show/hide views
+  const isGantt = (tab === 'gantt');
+  const isLedger = (tab === 'ledger');
+  const isUsers = (tab === 'users');
+
+  document.getElementById('table-view').style.display = (isGantt || isLedger || isUsers) ? 'none' : 'block';
+  document.getElementById('gantt-view').style.display = isGantt ? 'block' : 'none';
+  document.getElementById('ledger-view').style.display = isLedger ? 'block' : 'none';
+  document.getElementById('users-view').style.display = isUsers ? 'block' : 'none';
+  document.getElementById('filter-bar').style.display = (isGantt || isLedger || isUsers) ? 'none' : 'flex';
+
+  if (isGantt) {
+    currentView = 'gantt';
+    renderGantt();
+  } else if (isLedger) {
+    currentView = 'ledger';
+    renderLedger();
+  } else if (isUsers) {
+    currentView = 'users';
+    renderUserManagement();
+  } else {
+    currentView = 'table';
+    applyFilters();
+  }
+}
+
+// ===== View Switching (from toolbar) =====
+function switchView(view) {
+  if (view === 'gantt') switchTab('gantt');
+  else if (view === 'ledger') switchTab('ledger');
+  else switchTab('all');
+}
+
+// ===== Filtering =====
+function applyFilters() {
+  const typeFilter = document.getElementById('filter-type').value;
+  const statusFilter = document.getElementById('filter-status').value;
+  const search = document.getElementById('filter-search').value.toLowerCase().trim();
+
+  let data = [...allProjects];
+
+  // Tab filter
+  if (currentTab === 'routine') data = data.filter(p => p.project_type === '常务法律项目');
+  else if (currentTab === 'consult') data = data.filter(p => p.project_type === '专项法律咨询');
+  else if (currentTab === 'litigation') data = data.filter(p => p.project_type === '诉讼专项');
+
+  // Dropdown filters
+  if (typeFilter) data = data.filter(p => p.project_type === typeFilter);
+  if (statusFilter) data = data.filter(p => p.project_status === statusFilter);
+
+  // Specific type filter
+  const specificTypeFilter = document.getElementById('filter-specific-type').value;
+  if (specificTypeFilter) data = data.filter(p => p.specific_type === specificTypeFilter);
+
+  // Search
+  if (search) {
+    data = data.filter(p =>
+      (p.project_name || '').toLowerCase().includes(search) ||
+      (p.person_in_charge || '').toLowerCase().includes(search) ||
+      (p.law_firm || '').toLowerCase().includes(search) ||
+      (p.lawyer || '').toLowerCase().includes(search) ||
+      (p.category_tag || '').toLowerCase().includes(search) ||
+      (p.specific_type || '').toLowerCase().includes(search) ||
+      (p.notes || '').toLowerCase().includes(search)
+    );
+  }
+
+  // Date range filter (按开始时间)
+  const dateFrom = document.getElementById('filter-date-from').value;
+  const dateTo = document.getElementById('filter-date-to').value;
+  if (dateFrom) data = data.filter(p => p.start_date && p.start_date >= dateFrom);
+  if (dateTo) data = data.filter(p => p.start_date && p.start_date <= dateTo);
+
+  // Sort
+  data.sort((a, b) => {
+    let va = a[sortField], vb = b[sortField];
+    if (va == null) va = '';
+    if (vb == null) vb = '';
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return sortAsc ? 1 : -1;
+    if (va > vb) return sortAsc ? -1 : 1;
+    return 0;
+  });
+
+  filteredProjects = data;
+  renderTable(data);
+}
+
+function clearDateFilters() {
+  document.getElementById('filter-date-from').value = '';
+  document.getElementById('filter-date-to').value = '';
+  applyFilters();
+}
+
+function sortTable(field) {
+  if (sortField === field) { sortAsc = !sortAsc; }
+  else { sortField = field; sortAsc = true; }
+  applyFilters();
+}
+
+// ===== Table Rendering =====
+function renderTable(data) {
+  const tbody = document.getElementById('table-body');
+  const isLitTab = (currentTab === 'litigation');
+
+  // Show/hide litigation phase column
+  document.getElementById('th-litigation-phase').style.display = isLitTab ? '' : 'none';
+  document.getElementById('th-fee-status').style.display = currentView === 'ledger' ? 'none' : '';
+
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="14" class="empty-state"><div class="empty-icon">📭</div><h3>暂无匹配数据</h3><p>调整筛选条件或新建项目</p></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(p => {
+    const typeClass = p.project_type === '常务法律项目' ? 'routine' :
+                      p.project_type === '专项法律咨询' ? 'consult' : 'litigation';
+    const statusClass = getStatusClass(p.project_status);
+    const feeStatusClass = getFeeStatusClass(p.fee_payment_status);
+    const fee = parseFloat(p.fee) || 0;
+    return `
+      <tr>
+        <td style="font-weight:500;max-width:180px;white-space:normal;">${esc(p.project_name)}</td>
+        <td><span class="type-badge ${typeClass}">${esc(p.project_type)}</span></td>
+        <td style="max-width:100px;white-space:normal;">${esc(p.category_tag) || '<span class="text-muted">-</span>'}</td>
+        <td>${fmtSpecificType(p.specific_type)}</td>
+        <td><span class="badge ${statusClass}">${esc(p.project_status)}</span></td>
+        <td${isLitTab ? '' : ' style="display:none"'}>${fmtLitigationPhase(p.litigation_phase)}</td>
+        <td>${fmtDate(p.start_date)}</td>
+        <td>${fmtDate(p.end_date) || '<span class="text-muted">-</span>'}</td>
+        <td>${esc(p.person_in_charge) || '<span class="text-muted">-</span>'}</td>
+        <td>${esc(p.law_firm) || '<span class="text-muted">-</span>'}</td>
+        <td>${esc(p.lawyer) || '<span class="text-muted">-</span>'}</td>
+        <td style="font-weight:500;">¥${fee.toLocaleString('zh-CN', {minimumFractionDigits:2})}</td>
+        <td><span class="badge ${feeStatusClass}">${esc(p.fee_payment_status)}</span></td>
+        <td>
+          ${canEdit() ? `
+          <button class="btn btn-outline btn-sm" onclick="openEditModal(${p.id})" title="编辑">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="openDeleteModal(${p.id}, '${escJs(p.project_name)}')" title="删除">🗑️</button>
+          ` : '<span class="text-muted" style="font-size:11px;">只读</span>'}
+        </td>
+      </tr>`;
+  }).join('');
+
+  // Update litigation phase column display
+  document.querySelectorAll('#table-body td:nth-child(5)').forEach((td, i) => {
+    if (!isLitTab) td.style.display = 'none';
+  });
+}
+
+// ===== Gantt Chart =====
+let ganttInstance = null;
+
+function renderGantt() {
+  const svgEl = document.getElementById('gantt-chart');
+  const emptyEl = document.getElementById('gantt-empty');
+  const typeFilter = document.getElementById('gantt-filter-type').value;
+  const groupBy = document.getElementById('gantt-group').value;
+
+  let data = [...allProjects];
+  if (typeFilter) data = data.filter(p => p.project_type === typeFilter);
+  if (currentTab === 'routine') data = data.filter(p => p.project_type === '常务法律项目');
+  else if (currentTab === 'consult') data = data.filter(p => p.project_type === '专项法律咨询');
+  else if (currentTab === 'litigation') data = data.filter(p => p.project_type === '诉讼专项');
+
+  // Date range filter (按开始时间) — 优先用 gantt 专用控件，否则用主筛选栏
+  const dateFrom = document.getElementById('gantt-date-from').value || document.getElementById('filter-date-from').value;
+  const dateTo = document.getElementById('gantt-date-to').value || document.getElementById('filter-date-to').value;
+  if (dateFrom) data = data.filter(p => p.start_date && p.start_date >= dateFrom);
+  if (dateTo) data = data.filter(p => p.start_date && p.start_date <= dateTo);
+
+  if (data.length === 0) {
+    svgEl.innerHTML = '';
+    svgEl.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+
+  svgEl.style.display = 'block';
+  emptyEl.style.display = 'none';
+
+  const tasks = data.map(p => {
+    const endDate = p.end_date || new Date().toISOString().split('T')[0];
+    const startDate = p.start_date || endDate;
+    return {
+      id: String(p.id),
+      name: p.project_name,
+      start: startDate,
+      end: endDate,
+      progress: getProgressPercent(p.project_status),
+      dependencies: '',
+      custom_class: 'bar-' + getTypeClass(p.project_type)
+    };
+  });
+
+  // Clear previous
+  svgEl.innerHTML = '';
+
+  // Auto-select view mode based on date range
+  let viewMode = 'Month';
+  if (tasks.length > 0) {
+    const starts = tasks.map(t => new Date(t.start));
+    const ends = tasks.map(t => new Date(t.end));
+    const minDate = new Date(Math.min(...starts));
+    const maxDate = new Date(Math.max(...ends));
+    const diffDays = (maxDate - minDate) / (1000 * 60 * 60 * 24);
+    if (diffDays <= 14) viewMode = 'Day';
+    else if (diffDays <= 90) viewMode = 'Week';
+    else if (diffDays <= 730) viewMode = 'Month';
+    else viewMode = 'Year';
+  }
+
+  try {
+    ganttInstance = new Gantt(svgEl, tasks, {
+      view_mode: viewMode,
+      date_format: 'YYYY-MM-DD',
+      bar_height: 32,
+      bar_corner_radius: 4,
+      arrow_curve: 5,
+      padding: 18,
+      language: 'zh',
+      on_click: function(task) {
+        const p = allProjects.find(p => String(p.id) === task.id);
+        if (p) openEditModal(p.id);
+      },
+      custom_popup_html: function(task) {
+        const p = allProjects.find(p => String(p.id) === task.id);
+        if (!p) return '';
+        const fee = parseFloat(p.fee) || 0;
+        return `
+          <div style="padding:8px;font-size:12px;line-height:1.8;">
+            <strong>${esc(p.project_name)}</strong><br>
+            类型: ${esc(p.project_type)}<br>
+            专项: ${esc(p.category_tag) || '-'} | ${esc(p.specific_type) || '-'}<br>
+            状态: ${esc(p.project_status)}<br>
+            负责人: ${esc(p.person_in_charge) || '-'}<br>
+            律所: ${esc(p.law_firm) || '-'} | 律师: ${esc(p.lawyer) || '-'}<br>
+            费用: ¥${fee.toLocaleString('zh-CN')}<br>
+            开始: ${fmtDate(p.start_date)} | 结束: ${fmtDate(p.end_date) || '待定'}
+          </div>`;
+      }
+    });
+  } catch(e) {
+    console.error('Gantt render error:', e);
+    svgEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>甘特图渲染失败</h3><p>' + e.message + '</p></div>';
+  }
+}
+
+function getProgressPercent(status) {
+  const map = { '筹备中': 10, '已决策': 25, '诉讼中': 50, '执行中': 60, '已结束': 100 };
+  return map[status] || 0;
+}
+
+// ===== Ledger View =====
+let ledgerDebounceTimer = null;
+
+function renderLedgerDebounced() {
+  clearTimeout(ledgerDebounceTimer);
+  ledgerDebounceTimer = setTimeout(() => renderLedger(), 350);
+}
+
+function updateLedgerFilterOptions() {
+  // Populate law firm dropdown with unique values from data
+  const firmSelect = document.getElementById('ledger-filter-firm');
+  const currentVal = firmSelect.value;
+  const firms = new Set();
+  allProjects.forEach(p => {
+    if (p.law_firm && p.law_firm.trim()) firms.add(p.law_firm.trim());
+  });
+  const sortedFirms = [...firms].sort((a, b) => a.localeCompare(b, 'zh'));
+  firmSelect.innerHTML = '<option value="">全部律所</option>' +
+    sortedFirms.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join('');
+  // Restore previous selection if still valid
+  if ([...firmSelect.options].some(o => o.value === currentVal)) {
+    firmSelect.value = currentVal;
+  }
+}
+
+function clearLedgerFilters() {
+  document.getElementById('ledger-date-from').value = '';
+  document.getElementById('ledger-date-to').value = '';
+  document.getElementById('ledger-filter-specific').value = '';
+  document.getElementById('ledger-filter-category').value = '';
+  document.getElementById('ledger-filter-firm').value = '';
+  renderLedger();
+}
+
+function applyLedgerFilters(baseData) {
+  const dateFrom = document.getElementById('ledger-date-from').value;
+  const dateTo = document.getElementById('ledger-date-to').value;
+  const specificType = document.getElementById('ledger-filter-specific').value;
+  const categoryText = document.getElementById('ledger-filter-category').value.toLowerCase().trim();
+  const lawFirm = document.getElementById('ledger-filter-firm').value;
+
+  let data = [...baseData];
+
+  // Date range filter (by project start_date)
+  if (dateFrom) data = data.filter(p => p.start_date && p.start_date >= dateFrom);
+  if (dateTo) data = data.filter(p => p.start_date && p.start_date <= dateTo);
+
+  // Specific type filter
+  if (specificType) data = data.filter(p => p.specific_type === specificType);
+
+  // Category tag filter (fuzzy text match)
+  if (categoryText) {
+    data = data.filter(p =>
+      (p.category_tag || '').toLowerCase().includes(categoryText)
+    );
+  }
+
+  // Law firm filter
+  if (lawFirm) data = data.filter(p => (p.law_firm || '').trim() === lawFirm);
+
+  return data;
+}
+
+function renderLedger() {
+  const tbody = document.getElementById('ledger-body');
+  const summary = document.getElementById('ledger-summary');
+  const countEl = document.getElementById('ledger-filter-count');
+
+  // Refresh law firm dropdown options
+  updateLedgerFilterOptions();
+
+  // Base data: projects with fees > 0
+  const baseData = allProjects.filter(p => (parseFloat(p.fee) || 0) > 0);
+
+  // Apply ledger-specific filters
+  const data = applyLedgerFilters(baseData);
+
+  const totalFee = data.reduce((sum, p) => sum + (parseFloat(p.fee) || 0), 0);
+  const paidTotal = data.filter(p => p.fee_payment_status === '已支付').reduce((sum, p) => sum + (parseFloat(p.fee) || 0), 0);
+  const unpaidTotal = data.filter(p => p.fee_payment_status === '未支付').reduce((sum, p) => sum + (parseFloat(p.fee) || 0), 0);
+
+  summary.innerHTML = `总费用: <strong>¥${totalFee.toLocaleString('zh-CN', {minimumFractionDigits:2})}</strong> | 已付: ¥${paidTotal.toLocaleString('zh-CN', {minimumFractionDigits:2})} | 未付: ¥${unpaidTotal.toLocaleString('zh-CN', {minimumFractionDigits:2})}`;
+
+  // Update filter count badge
+  const filteredFrom = baseData.length;
+  countEl.textContent = data.length !== filteredFrom
+    ? `筛选结果: ${data.length} / ${filteredFrom} 条`
+    : `共 ${data.length} 条`;
+
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="11" class="empty-state"><div class="empty-icon">💰</div><h3>暂无匹配的费用记录</h3><p>调整筛选条件查看</p></td></tr>`;
+    document.getElementById('ledger-charts').style.display = 'none';
+    return;
+  }
+
+  tbody.innerHTML = data.map(p => {
+    const fee = parseFloat(p.fee) || 0;
+    const feeStatusClass = getFeeStatusClass(p.fee_payment_status);
+    return `
+      <tr>
+        <td style="font-weight:500;">${esc(p.project_name)}</td>
+        <td>${esc(p.project_type)}</td>
+        <td>${esc(p.category_tag) || '<span class="text-muted">-</span>'}</td>
+        <td>${fmtSpecificType(p.specific_type)}</td>
+        <td style="font-weight:500;color:var(--primary);">¥${fee.toLocaleString('zh-CN', {minimumFractionDigits:2})}</td>
+        <td><span class="badge ${feeStatusClass}">${esc(p.fee_payment_status)}</span></td>
+        <td>${fmtDate(p.fee_payment_date) || '<span class="text-muted">-</span>'}</td>
+        <td>${esc(p.person_in_charge) || '<span class="text-muted">-</span>'}</td>
+        <td>${esc(p.law_firm) || '<span class="text-muted">-</span>'}</td>
+        <td>${esc(p.lawyer) || '<span class="text-muted">-</span>'}</td>
+        <td class="text-wrap">${esc(p.notes) || '<span class="text-muted">-</span>'}</td>
+      </tr>`;
+  }).join('');
+
+  renderLedgerCharts(data);
+}
+
+// ===== Ledger Charts =====
+let chartLawFirm = null;
+let chartCategoryFee = null;
+let chartPayStatus = null;
+let chartTimeFee = null;
+
+function renderLedgerCharts(data) {
+  const chartsDiv = document.getElementById('ledger-charts');
+  chartsDiv.style.display = 'block';
+
+  // Destroy previous chart instances
+  if (chartLawFirm) { chartLawFirm.destroy(); chartLawFirm = null; }
+  if (chartCategoryFee) { chartCategoryFee.destroy(); chartCategoryFee = null; }
+  if (chartPayStatus) { chartPayStatus.destroy(); chartPayStatus = null; }
+  if (chartTimeFee) { chartTimeFee.destroy(); chartTimeFee = null; }
+
+  // Common color palette
+  const palette = ['#1a3a5c','#2c5f8a','#c9a84c','#d94040','#2e7d32','#e67e22','#1976d2','#8e44ad','#16a085','#e74c3c'];
+
+  // --- Chart 1: Fees by Law Firm ---
+  const firmMap = {};
+  data.forEach(p => {
+    const key = p.law_firm || '未指定';
+    firmMap[key] = (firmMap[key] || 0) + (parseFloat(p.fee) || 0);
+  });
+  const firmLabels = Object.keys(firmMap);
+  const firmValues = Object.values(firmMap);
+  const firmColors = firmLabels.map((_, i) => palette[i % palette.length]);
+
+  const ctx1 = document.getElementById('chart-law-firm').getContext('2d');
+  chartLawFirm = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: firmLabels,
+      datasets: [{
+        label: '费用 (¥)',
+        data: firmValues,
+        backgroundColor: firmColors,
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => '¥' + ctx.raw.toLocaleString('zh-CN', {minimumFractionDigits: 2})
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => '¥' + v.toLocaleString('zh-CN')
+          }
+        }
+      }
+    }
+  });
+
+  // --- Chart 2: Fees by Category Tag (专项名称-金额统计) ---
+  const categoryMap = {};
+  data.forEach(p => {
+    const key = p.category_tag || '未分类';
+    categoryMap[key] = (categoryMap[key] || 0) + (parseFloat(p.fee) || 0);
+  });
+  // Sort by value descending
+  const catEntries = Object.entries(categoryMap).sort((a, b) => b[1] - a[1]);
+  const catLabels = catEntries.map(e => e[0]);
+  const catValues = catEntries.map(e => e[1]);
+  const catColors = catLabels.map((_, i) => palette[i % palette.length]);
+
+  const ctx2 = document.getElementById('chart-category-fee').getContext('2d');
+  chartCategoryFee = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: catLabels,
+      datasets: [{
+        label: '费用 (¥)',
+        data: catValues,
+        backgroundColor: catColors,
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => '¥' + ctx.raw.toLocaleString('zh-CN', {minimumFractionDigits: 2})
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => '¥' + v.toLocaleString('zh-CN')
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 30,
+            font: { size: 10 }
+          }
+        }
+      }
+    }
+  });
+
+  // --- Chart 3: Fees by Payment Status (支付状态-支付金额统计) ---
+  const payMap = {};
+  data.forEach(p => {
+    const key = p.fee_payment_status || '未知';
+    payMap[key] = (payMap[key] || 0) + (parseFloat(p.fee) || 0);
+  });
+  // Fixed order: 未支付, 已确认, 已支付
+  const payOrder = ['未支付', '已确认', '已支付'];
+  const payLabels = [];
+  const payValues = [];
+  const payColors = [];
+  const statusColorMap = { '未支付': '#d94040', '已确认': '#1976d2', '已支付': '#2e7d32' };
+  payOrder.forEach(status => {
+    if (payMap[status] !== undefined) {
+      payLabels.push(status);
+      payValues.push(payMap[status]);
+      payColors.push(statusColorMap[status] || '#999');
+    }
+  });
+  // Also include any status not in the fixed order
+  Object.entries(payMap).forEach(([status, val]) => {
+    if (!payOrder.includes(status)) {
+      payLabels.push(status);
+      payValues.push(val);
+      payColors.push('#999');
+    }
+  });
+
+  const ctx3 = document.getElementById('chart-pay-status').getContext('2d');
+  chartPayStatus = new Chart(ctx3, {
+    type: 'doughnut',
+    data: {
+      labels: payLabels,
+      datasets: [{
+        label: '费用 (¥)',
+        data: payValues,
+        backgroundColor: payColors,
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { padding: 16, usePointStyle: true, font: { size: 11 } }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0;
+              return ctx.label + ': ¥' + ctx.raw.toLocaleString('zh-CN', {minimumFractionDigits: 2}) + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // --- Chart 4: Fees by Month (时间-金额统计) ---
+  const monthMap = {};
+  data.forEach(p => {
+    if (!p.start_date) return;
+    const month = p.start_date.substring(0, 7); // YYYY-MM
+    monthMap[month] = (monthMap[month] || 0) + (parseFloat(p.fee) || 0);
+  });
+  const monthEntries = Object.entries(monthMap).sort((a, b) => a[0].localeCompare(b[0]));
+  const monthLabels = monthEntries.map(e => e[0]);
+  const monthValues = monthEntries.map(e => e[1]);
+
+  const ctx4 = document.getElementById('chart-time-fee').getContext('2d');
+  chartTimeFee = new Chart(ctx4, {
+    type: 'line',
+    data: {
+      labels: monthLabels,
+      datasets: [{
+        label: '月度费用 (¥)',
+        data: monthValues,
+        borderColor: '#1a3a5c',
+        backgroundColor: 'rgba(26,58,92,0.08)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#1a3a5c',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => '¥' + ctx.raw.toLocaleString('zh-CN', {minimumFractionDigits: 2})
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => '¥' + v.toLocaleString('zh-CN')
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            font: { size: 10 }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ===== CRUD Operations =====
+function openAddModal() {
+  if (!canEdit()) {
+    showToast('您没有编辑权限，请联系管理员授权', 'error');
+    return;
+  }
+  document.getElementById('modal-title').textContent = '新建项目';
+  document.getElementById('edit-id').value = '';
+  document.getElementById('project-form').reset();
+  document.getElementById('form-project-status').value = '筹备中';
+  document.getElementById('form-specific-type').value = '';
+  document.getElementById('form-fee-status').value = '未支付';
+  document.getElementById('group-litigation-phase').style.display = 'none';
+  document.getElementById('project-modal').classList.add('show');
+}
+
+function openEditModal(id) {
+  if (!canEdit()) {
+    showToast('您没有编辑权限，请联系管理员授权', 'error');
+    return;
+  }
+  const p = allProjects.find(p => p.id === id);
+  if (!p) return;
+
+  document.getElementById('modal-title').textContent = '编辑项目';
+  document.getElementById('edit-id').value = p.id;
+  document.getElementById('form-project-name').value = p.project_name || '';
+  document.getElementById('form-project-type').value = p.project_type || '';
+  document.getElementById('form-category-tag').value = p.category_tag || '';
+  document.getElementById('form-specific-type').value = p.specific_type || '';
+  document.getElementById('form-project-status').value = p.project_status || '筹备中';
+  document.getElementById('form-litigation-phase').value = p.litigation_phase || '';
+  document.getElementById('form-start-date').value = p.start_date || '';
+  document.getElementById('form-end-date').value = p.end_date || '';
+  document.getElementById('form-person').value = p.person_in_charge || '';
+  document.getElementById('form-law-firm').value = p.law_firm || '';
+  document.getElementById('form-lawyer').value = p.lawyer || '';
+  document.getElementById('form-fee').value = p.fee || '';
+  document.getElementById('form-fee-status').value = p.fee_payment_status || '未支付';
+  document.getElementById('form-fee-date').value = p.fee_payment_date || '';
+  document.getElementById('form-notes').value = p.notes || '';
+
+  onTypeChange();
+  document.getElementById('project-modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('project-modal').classList.remove('show');
+}
+
+function onTypeChange() {
+  const type = document.getElementById('form-project-type').value;
+  document.getElementById('group-litigation-phase').style.display =
+    type === '诉讼专项' ? 'flex' : 'none';
+}
+
+async function submitForm() {
+  const id = document.getElementById('edit-id').value;
+  const isEdit = !!id;
+
+  const payload = {
+    project_name: document.getElementById('form-project-name').value.trim(),
+    project_type: document.getElementById('form-project-type').value,
+    category_tag: document.getElementById('form-category-tag').value.trim(),
+    specific_type: document.getElementById('form-specific-type').value,
+    project_status: document.getElementById('form-project-status').value,
+    litigation_phase: document.getElementById('form-litigation-phase').value,
+    start_date: document.getElementById('form-start-date').value,
+    end_date: document.getElementById('form-end-date').value || null,
+    person_in_charge: document.getElementById('form-person').value.trim(),
+    law_firm: document.getElementById('form-law-firm').value.trim(),
+    lawyer: document.getElementById('form-lawyer').value.trim(),
+    fee: parseFloat(document.getElementById('form-fee').value) || 0,
+    fee_payment_status: document.getElementById('form-fee-status').value,
+    fee_payment_date: document.getElementById('form-fee-date').value || null,
+    notes: document.getElementById('form-notes').value.trim()
+  };
+
+  // Validation
+  if (!payload.project_name) { showToast('请输入项目名称', 'error'); return; }
+  if (!payload.project_type) { showToast('请选择项目类型', 'error'); return; }
+  if (!payload.start_date) { showToast('请选择开始时间', 'error'); return; }
+  if (!payload.specific_type) { showToast('请选择具体项目类型', 'error'); return; }
+  if (payload.project_type === '诉讼专项' && !payload.litigation_phase) {
+    showToast('诉讼专项请选择诉讼阶段', 'error'); return;
+  }
+
+  try {
+    let url, method;
+    if (isEdit) {
+      url = `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${id}`;
+      method = 'PATCH';
+    } else {
+      url = `${SUPABASE_URL}/rest/v1/${TABLE}`;
+      method = 'POST';
+    }
+
+    const resp = await fetch(url, {
+      method,
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.message || '保存失败');
+    }
+
+    showToast(isEdit ? '项目更新成功' : '项目创建成功', 'success');
+    closeModal();
+    await loadProjects();
+  } catch(e) {
+    showToast('操作失败: ' + e.message, 'error');
+  }
+}
+
+function openDeleteModal(id, name) {
+  if (!canEdit()) {
+    showToast('您没有编辑权限，请联系管理员授权', 'error');
+    return;
+  }
+  deleteTargetId = id;
+  document.getElementById('delete-project-name').textContent = name;
+  document.getElementById('delete-modal').classList.add('show');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.remove('show');
+  deleteTargetId = null;
+}
+
+async function confirmDelete() {
+  if (!deleteTargetId) return;
+  try {
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${deleteTargetId}`,
+      { method: 'DELETE', headers: getHeaders() }
+    );
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.message || '删除失败');
+    }
+    showToast('项目已删除', 'success');
+    closeDeleteModal();
+    await loadProjects();
+  } catch(e) {
+    showToast('删除失败: ' + e.message, 'error');
+  }
+}
+
+// ===== Helpers =====
+function getTypeClass(type) {
+  if (type === '常务法律项目') return 'routine';
+  if (type === '专项法律咨询') return 'consult';
+  return 'litigation';
+}
+
+function getStatusClass(status) {
+  const map = { '筹备中': 'badge-gray', '已决策': 'badge-blue', '诉讼中': 'badge-orange', '执行中': 'badge-green', '已结束': 'badge-gray' };
+  return map[status] || 'badge-gray';
+}
+
+function getFeeStatusClass(status) {
+  const map = { '未支付': 'badge-red', '已支付': 'badge-green', '已确认': 'badge-blue' };
+  return map[status] || 'badge-gray';
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toISOString().split('T')[0];
+}
+
+function fmtLitigationPhase(phase) {
+  if (!phase) return '<span class="text-muted">-</span>';
+  return `<span class="badge badge-orange">${esc(phase)}</span>`;
+}
+
+function esc(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function fmtSpecificType(type) {
+  if (!type) return '<span class="text-muted">-</span>';
+  const colorMap = {
+    '法律咨询': '#1976d2', '公证': '#8e44ad', '委托': '#e67e22',
+    '函告': '#16a085', '诉讼': '#d94040', '执行': '#2c5f8a',
+    '工商': '#c9a84c', '其它': '#666'
+  };
+  const color = colorMap[type] || '#666';
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${color}15;color:${color};border:1px solid ${color}40;">${esc(type)}</span>`;
+}
+
+function escJs(str) {
+  if (!str) return '';
+  return str.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function showToast(msg, type) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 3000);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+// Close modals on overlay click
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('show');
+    deleteTargetId = null;
+  }
+});
+
+// Close modals on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.show').forEach(el => el.classList.remove('show'));
+    deleteTargetId = null;
+  }
+});
+</script>
+
+</body>
+</html>
