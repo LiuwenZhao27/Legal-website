@@ -793,48 +793,6 @@
     border-radius: 12px;
     margin-left: 8px;
   }
-
-  /* ===== Auth Role Info ===== */
-  .auth-role-info {
-    margin: 12px 0 0;
-    padding: 12px 14px;
-    background: #f8fafc;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-  .auth-role-info .role-info-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 0;
-  }
-  .role-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-  .role-dot.admin { background: var(--danger); }
-  .role-dot.sub { background: var(--warning); }
-  .role-dot.visitor { background: var(--info); }
-
-  /* ===== User Role Legend ===== */
-  .role-legend {
-    display: flex;
-    gap: 20px;
-    padding: 10px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--text-secondary);
-    flex-wrap: wrap;
-  }
-  .role-legend .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
 </style>
 </head>
 <body>
@@ -845,11 +803,6 @@
     <div class="auth-logo">⚖️</div>
     <h2>法务管理平台</h2>
     <p class="auth-subtitle">注册需经管理员授权方可访问</p>
-    <div class="auth-role-info" id="auth-role-info" style="display:none;">
-      <div class="role-info-item"><span class="role-dot admin"></span> <strong>主管理员</strong> — 全部权限</div>
-      <div class="role-info-item"><span class="role-dot sub"></span> <strong>子管理员</strong> — 可阅读和编辑</div>
-      <div class="role-info-item"><span class="role-dot visitor"></span> <strong>访客</strong> — 仅可阅读</div>
-    </div>
 
     <div class="auth-mode-tabs">
       <div class="auth-mode-tab active" id="tab-login" onclick="switchAuthMode('login')">登 录</div>
@@ -886,9 +839,6 @@
       </div>
       <div class="auth-error" id="reg-error"></div>
       <div class="auth-info" id="reg-info" style="display:none;"></div>
-      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;text-align:center;">
-        注册后将获得<strong>访客</strong>身份（仅可阅读），需管理员授权后可升级为<strong>子管理员</strong>
-      </div>
       <button class="auth-btn" onclick="doRegister()">注 册</button>
     </div>
   </div>
@@ -1158,11 +1108,6 @@
       <div style="padding:12px 16px;font-size:14px;font-weight:600;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
         <span>👥 用户管理</span>
         <span style="font-size:13px;font-weight:400;color:var(--text-secondary);" id="users-count"></span>
-      </div>
-      <div class="role-legend">
-        <span class="legend-item"><span class="role-dot admin"></span> 主管理员：全部权限</span>
-        <span class="legend-item"><span class="role-dot sub"></span> 子管理员：可阅读和编辑</span>
-        <span class="legend-item"><span class="role-dot visitor"></span> 访客：仅可阅读</span>
       </div>
       <div class="table-wrapper">
         <table class="user-table">
@@ -1522,8 +1467,6 @@ function switchAuthMode(mode) {
   document.getElementById('login-error').classList.remove('show');
   document.getElementById('reg-error').classList.remove('show');
   document.getElementById('reg-info').style.display = 'none';
-  // Show role info only on register tab
-  document.getElementById('auth-role-info').style.display = mode === 'register' ? 'block' : 'none';
 }
 
 async function doLogin() {
@@ -1613,9 +1556,6 @@ async function doRegister() {
     // Generate a unique ID using timestamp + random
     const newUserId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
 
-    // Mark as local change to suppress self-toast
-    _localUserChangeTimestamp = Date.now();
-
     // Insert to Supabase
     await apiInsertUser({
       id: newUserId,
@@ -1668,14 +1608,10 @@ function doLogout() {
   updateUserUI();
   if (currentTab === 'users') switchTab('all');
 
-  // Clean up realtime subscriptions
+  // Clean up realtime subscription
   if (realtimeChannel) {
     getSupabase().removeChannel(realtimeChannel);
     realtimeChannel = null;
-  }
-  if (realtimeUsersChannel) {
-    getSupabase().removeChannel(realtimeUsersChannel);
-    realtimeUsersChannel = null;
   }
   const rtEl = document.getElementById('rt-status');
   if (rtEl) { rtEl.innerHTML = '📡 未连接'; rtEl.style.color = 'var(--text-secondary)'; }
@@ -1694,13 +1630,13 @@ function updateUserUI() {
     displayName.textContent = user.username;
     avatar.textContent = user.username.charAt(0);
     if (user.role === 'admin') {
-      displayRole.innerHTML = '<span class="role-dot admin" style="display:inline-block;vertical-align:middle;margin-right:4px;"></span>主管理员';
+      displayRole.textContent = '主管理员';
       navUsers.style.display = '';
     } else if (user.role === 'sub_admin') {
-      displayRole.innerHTML = '<span class="role-dot sub" style="display:inline-block;vertical-align:middle;margin-right:4px;"></span>子管理员';
+      displayRole.textContent = '子管理员';
       navUsers.style.display = 'none';
     } else {
-      displayRole.innerHTML = '<span class="role-dot visitor" style="display:inline-block;vertical-align:middle;margin-right:4px;"></span>访客';
+      displayRole.textContent = '普通用户';
       navUsers.style.display = 'none';
     }
 
@@ -1740,7 +1676,7 @@ async function renderUserManagement() {
     const currentUser = getCurrentUser();
 
     tbody.innerHTML = users.map(u => {
-      const roleLabel = u.role === 'admin' ? '主管理员' : u.role === 'sub_admin' ? '子管理员' : '访客';
+      const roleLabel = u.role === 'admin' ? '主管理员' : u.role === 'sub_admin' ? '子管理员' : '普通用户';
       const statusHtml = u.approved
         ? '<span class="approved-badge">已授权</span>'
         : '<span class="pending-badge">待审批</span>';
@@ -1780,7 +1716,6 @@ async function renderUserManagement() {
 async function approveUser(userId) {
   if (!isAdmin()) return;
   try {
-    _localUserChangeTimestamp = Date.now();
     await apiUpdateUser(userId, { approved: true });
     _usersCache = null; _cacheTimestamp = 0;
     const users = await getAuthUsers();
@@ -1797,7 +1732,6 @@ async function rejectUser(userId) {
   if (!isAdmin()) return;
   if (!confirm('确定要拒绝该用户的注册吗？此操作不可撤销。')) return;
   try {
-    _localUserChangeTimestamp = Date.now();
     const users = await getAuthUsers();
     const user = users.find(u => u.id === userId);
     const username = user ? user.username : '';
@@ -1815,7 +1749,6 @@ async function promoteUser(userId) {
   if (!isAdmin()) return;
   if (!confirm('确定将该用户设为子管理员吗？子管理员将获得编辑权限。')) return;
   try {
-    _localUserChangeTimestamp = Date.now();
     await apiUpdateUser(userId, { role: 'sub_admin' });
     _usersCache = null; _cacheTimestamp = 0;
     const users = await getAuthUsers();
@@ -1832,7 +1765,6 @@ async function demoteUser(userId) {
   if (!isAdmin()) return;
   if (!confirm('确定取消该用户的子管理员权限吗？')) return;
   try {
-    _localUserChangeTimestamp = Date.now();
     await apiUpdateUser(userId, { role: 'user' });
     _usersCache = null; _cacheTimestamp = 0;
     const users = await getAuthUsers();
@@ -1850,7 +1782,6 @@ async function deleteUser(userId, username) {
   if (!confirm('确定要删除用户「' + username + '」吗？此操作不可撤销。')) return;
   const currentUser = getCurrentUser();
   try {
-    _localUserChangeTimestamp = Date.now();
     const users = await getAuthUsers();
     const target = users.find(u => u.id === userId);
     if (target && currentUser && target.username === currentUser.username) {
@@ -1977,19 +1908,11 @@ async function loadProjects() {
 }
 
 // ===== Real-time Sync =====
-let realtimeUsersChannel = null;
-let _userRealtimeDebounce = null;
-let _localUserChangeTimestamp = 0;
-
 function initRealtime() {
-  // Clean up existing subscriptions
+  // Clean up existing subscription
   if (realtimeChannel) {
     getSupabase().removeChannel(realtimeChannel);
     realtimeChannel = null;
-  }
-  if (realtimeUsersChannel) {
-    getSupabase().removeChannel(realtimeUsersChannel);
-    realtimeUsersChannel = null;
   }
 
   if (!ANON_KEY) return;
@@ -1999,8 +1922,6 @@ function initRealtime() {
 
   try {
     const client = getSupabase();
-
-    // Channel 1: legal_projects (项目数据)
     realtimeChannel = client
       .channel('legal-projects-changes')
       .on('postgres_changes',
@@ -2014,27 +1935,11 @@ function initRealtime() {
           console.log('[Realtime] Subscribed to legal_projects changes');
           if (rtEl) { rtEl.innerHTML = '📡 实时同步'; rtEl.style.color = 'var(--success)'; }
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Channel error (projects)');
+          console.error('[Realtime] Channel error');
           if (rtEl) { rtEl.innerHTML = '📡 同步断开'; rtEl.style.color = 'var(--danger)'; }
-        }
-      });
-
-    // Channel 2: legal_users (用户数据同步)
-    realtimeUsersChannel = client
-      .channel('legal-users-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: USERS_TABLE },
-        (payload) => {
-          handleUserRealtimeChange(payload);
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[Realtime] Subscribed to legal_users changes');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Channel error (users)');
         } else if (status === 'TIMED_OUT') {
-          console.warn('[Realtime] Users subscription timed out, retrying...');
+          console.warn('[Realtime] Subscription timed out, retrying...');
+          if (rtEl) { rtEl.innerHTML = '📡 重连中...'; rtEl.style.color = 'var(--warning)'; }
           setTimeout(initRealtime, 3000);
         }
       });
@@ -2070,46 +1975,6 @@ function handleRealtimeChange(payload) {
       showToast(`🔄 ${actor} 更新了项目「${name}」`, 'info');
     } else if (eventType === 'DELETE') {
       showToast(`🔄 ${actor} 删除了项目「${name}」`, 'info');
-    }
-  }
-}
-
-// Handle realtime changes for legal_users table
-function handleUserRealtimeChange(payload) {
-  const now = Date.now();
-  const isLocal = (now - _localUserChangeTimestamp) < 2000;
-
-  // Debounce UI refresh
-  if (_userRealtimeDebounce) clearTimeout(_userRealtimeDebounce);
-  _userRealtimeDebounce = setTimeout(() => {
-    _usersCache = null;
-    _cacheTimestamp = 0;
-    // Refresh user management view if open
-    if (currentTab === 'users') {
-      renderUserManagement();
-    }
-    // Refresh user UI in case current user's role changed
-    updateUserUI();
-    _userRealtimeDebounce = null;
-  }, 300);
-
-  // Show toast for external changes
-  if (!isLocal) {
-    const eventType = payload.eventType;
-    const record = payload.new || payload.old || {};
-    const username = record.username || '未知用户';
-    if (eventType === 'INSERT') {
-      showToast(`👤 新用户「${username}」已注册（待审批）`, 'info');
-    } else if (eventType === 'UPDATE') {
-      if (payload.new && payload.old) {
-        if (payload.new.approved !== payload.old.approved) {
-          showToast(`✅ 用户「${username}」${payload.new.approved ? '已通过审批' : '审批状态已变更'}`, 'info');
-        } else if (payload.new.role !== payload.old.role) {
-          showToast(`🔄 用户「${username}」角色已更新`, 'info');
-        }
-      }
-    } else if (eventType === 'DELETE') {
-      showToast(`🗑️ 用户「${username}」已被移除`, 'info');
     }
   }
 }
@@ -2292,10 +2157,6 @@ function renderTable(data) {
       </tr>`;
   }).join('');
 
-  // Update litigation phase column display
-  document.querySelectorAll('#table-body td:nth-child(5)').forEach((td, i) => {
-    if (!isLitTab) td.style.display = 'none';
-  });
 }
 
 // ===== Gantt Chart =====
