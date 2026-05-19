@@ -1365,12 +1365,12 @@
       <div class="attachment-upload-zone" id="attachment-upload-zone" onclick="document.getElementById('attachment-file-input').click()">
         <div class="upload-icon">📤</div>
         <div class="upload-text">点击上传或拖拽文件到此处</div>
-        <div class="upload-hint">支持所有文件类型，单个文件不超过 50MB</div>
+        <div class="upload-hint">支持 PDF/Word/Excel/图片/压缩包/邮件等常见格式，单个文件不超过 50MB</div>
       </div>
       <div class="upload-progress-bar" id="attachment-upload-progress">
         <div class="bar" id="attachment-upload-progress-bar"></div>
       </div>
-      <input type="file" id="attachment-file-input" style="display:none;" onchange="handleAttachmentFileSelect(event)" />
+      <input type="file" id="attachment-file-input" style="display:none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg,.zip,.rar,.7z,.eml,.msg,.json,.xml,.html,.md,.rtf,.odt,.ods,.odp" onchange="handleAttachmentFileSelect(event)" />
       <!-- File List -->
       <div class="attachment-file-list" id="attachment-file-list">
         <div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:13px;">加载中...</div>
@@ -3004,9 +3004,56 @@ async function refreshAttachmentList() {
   }
 }
 
+// 支持的文件类型（扩展名 + MIME 映射）
+const ALLOWED_FILE_TYPES = {
+  // 文档
+  'pdf': 'application/pdf',
+  'doc': 'application/msword',
+  'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'xls': 'application/vnd.ms-excel',
+  'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'ppt': 'application/vnd.ms-powerpoint',
+  'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'txt': 'text/plain',
+  'csv': 'text/csv',
+  'rtf': 'application/rtf',
+  'odt': 'application/vnd.oasis.opendocument.text',
+  'ods': 'application/vnd.oasis.opendocument.spreadsheet',
+  'odp': 'application/vnd.oasis.opendocument.presentation',
+  'md': 'text/markdown',
+  // 图片
+  'jpg': 'image/jpeg',
+  'jpeg': 'image/jpeg',
+  'png': 'image/png',
+  'gif': 'image/gif',
+  'bmp': 'image/bmp',
+  'webp': 'image/webp',
+  'svg': 'image/svg+xml',
+  // 压缩包
+  'zip': 'application/zip',
+  'rar': 'application/vnd.rar',
+  '7z': 'application/x-7z-compressed',
+  // 邮件/数据
+  'eml': 'message/rfc822',
+  'msg': 'application/vnd.ms-outlook',
+  'json': 'application/json',
+  'xml': 'application/xml',
+  'html': 'text/html'
+};
+
+function isFileTypeAllowed(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  return ext in ALLOWED_FILE_TYPES;
+}
+
 function handleAttachmentFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
+  if (!isFileTypeAllowed(file)) {
+    showToast('不支持的文件类型：.' + file.name.split('.').pop() + '，支持文档/图片/压缩包/邮件等', 'error');
+    event.target.value = '';
+    return;
+  }
   if (file.size > 50 * 1024 * 1024) {
     showToast('文件大小不能超过 50MB', 'error');
     event.target.value = '';
@@ -3174,6 +3221,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     const file = e.dataTransfer.files[0];
     if (file) {
+      if (!isFileTypeAllowed(file)) {
+        showToast('不支持的文件类型：.' + file.name.split('.').pop() + '，支持文档/图片/压缩包/邮件等', 'error');
+        return;
+      }
       if (file.size > 50 * 1024 * 1024) {
         showToast('文件大小不能超过 50MB', 'error');
         return;
