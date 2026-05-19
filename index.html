@@ -298,6 +298,92 @@
   .text-muted { color: var(--text-secondary); }
   .text-wrap { max-width: 200px; white-space: normal; word-break: break-all; }
 
+  /* ===== Attachment Upload ===== */
+  .attachment-upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fafbfc;
+    margin-bottom: 12px;
+  }
+  .attachment-upload-zone:hover, .attachment-upload-zone.drag-over {
+    border-color: var(--primary-light);
+    background: var(--info-light);
+  }
+  .attachment-upload-zone .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .attachment-upload-zone .upload-text { font-size: 13px; color: var(--text-secondary); }
+  .attachment-upload-zone .upload-hint { font-size: 11px; color: #999; margin-top: 4px; }
+
+  .attachment-file-list { max-height: 260px; overflow-y: auto; }
+  .attachment-file-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-bottom: 1px solid #f0f2f4;
+    font-size: 13px;
+    gap: 10px;
+  }
+  .attachment-file-row:hover { background: #f8fafc; }
+  .attachment-file-row .file-icon { font-size: 18px; flex-shrink: 0; }
+  .attachment-file-row .file-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--primary-light);
+  }
+  .attachment-file-row .file-name:hover { text-decoration: underline; }
+  .attachment-file-row .file-size { font-size: 11px; color: var(--text-secondary); flex-shrink: 0; }
+  .attachment-file-row .file-date { font-size: 11px; color: #999; flex-shrink: 0; }
+  .attachment-file-row .btn-delete-attachment {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--danger);
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .attachment-file-row .btn-delete-attachment:hover { background: var(--danger-light); }
+
+  .attachment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--info-light);
+    color: var(--info);
+    transition: all 0.2s;
+  }
+  .attachment-badge:hover { background: #cce5ff; }
+  .attachment-badge.has-files { background: #e8f5e9; color: var(--success); }
+
+  .upload-progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+    display: none;
+  }
+  .upload-progress-bar .bar {
+    height: 100%;
+    background: var(--primary-light);
+    width: 0%;
+    transition: width 0.3s;
+  }
+
   /* ===== Badges ===== */
   .badge {
     display: inline-block;
@@ -990,11 +1076,12 @@
               <th onclick="sortTable('lawyer')">律师 <span class="sort-arrow"></span></th>
               <th onclick="sortTable('fee')">费用 <span class="sort-arrow"></span></th>
               <th id="th-fee-status" onclick="sortTable('fee_payment_status')">支付状态 <span class="sort-arrow"></span></th>
+              <th>📎</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody id="table-body">
-            <tr><td colspan="14" class="empty-state"><div class="empty-icon">📭</div><h3>暂无数据</h3><p>请先设置 Supabase API Key 并确保数据库已建表</p></td></tr>
+            <tr><td colspan="15" class="empty-state"><div class="empty-icon">📭</div><h3>暂无数据</h3><p>请先设置 Supabase API Key 并确保数据库已建表</p></td></tr>
           </tbody>
         </table>
       </div>
@@ -1261,6 +1348,36 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeDeleteModal()">取消</button>
       <button class="btn btn-danger" id="btn-delete-confirm" onclick="confirmDelete()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Attachment Modal ===== -->
+<div class="modal-overlay" id="attachment-modal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <h3>📎 项目附件</h3>
+      <button class="modal-close" onclick="closeAttachmentModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">项目：<strong id="attachment-project-name"></strong></p>
+      <!-- Upload Zone -->
+      <div class="attachment-upload-zone" id="attachment-upload-zone" onclick="document.getElementById('attachment-file-input').click()">
+        <div class="upload-icon">📤</div>
+        <div class="upload-text">点击上传或拖拽文件到此处</div>
+        <div class="upload-hint">支持所有文件类型，单个文件不超过 50MB</div>
+      </div>
+      <div class="upload-progress-bar" id="attachment-upload-progress">
+        <div class="bar" id="attachment-upload-progress-bar"></div>
+      </div>
+      <input type="file" id="attachment-file-input" style="display:none;" onchange="handleAttachmentFileSelect(event)" />
+      <!-- File List -->
+      <div class="attachment-file-list" id="attachment-file-list">
+        <div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:13px;">加载中...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeAttachmentModal()">关闭</button>
     </div>
   </div>
 </div>
@@ -1901,6 +2018,7 @@ async function loadProjects() {
     updateStats();
     updateBadges();
     applyFilters();
+    fetchAttachmentCounts();
   } catch(e) {
     console.error('Load error:', e);
     document.getElementById('db-status').innerHTML = '🔴 网络错误';
@@ -1943,10 +2061,38 @@ function initRealtime() {
           setTimeout(initRealtime, 3000);
         }
       });
+    initAttachmentsRealtime();
   } catch (e) {
     console.error('[Realtime] Init failed:', e);
     if (rtEl) { rtEl.innerHTML = '📡 连接失败'; rtEl.style.color = 'var(--danger)'; }
     setTimeout(initRealtime, 5000);
+  }
+}
+
+let attachmentsRealtimeChannel = null;
+
+function initAttachmentsRealtime() {
+  if (attachmentsRealtimeChannel) {
+    getSupabase().removeChannel(attachmentsRealtimeChannel);
+    attachmentsRealtimeChannel = null;
+  }
+  if (!ANON_KEY) return;
+  try {
+    attachmentsRealtimeChannel = getSupabase()
+      .channel('attachments-changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: ATTACHMENTS_TABLE },
+        () => {
+          fetchAttachmentCounts();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Subscribed to project_attachments changes');
+        }
+      });
+  } catch (e) {
+    console.error('[Realtime] Attachments channel init failed:', e);
   }
 }
 
@@ -2123,7 +2269,7 @@ function renderTable(data) {
   document.getElementById('th-fee-status').style.display = currentView === 'ledger' ? 'none' : '';
 
   if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="14" class="empty-state"><div class="empty-icon">📭</div><h3>暂无匹配数据</h3><p>调整筛选条件或新建项目</p></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="15" class="empty-state"><div class="empty-icon">📭</div><h3>暂无匹配数据</h3><p>调整筛选条件或新建项目</p></td></tr>`;
     return;
   }
 
@@ -2148,6 +2294,11 @@ function renderTable(data) {
         <td>${esc(p.lawyer) || '<span class="text-muted">-</span>'}</td>
         <td style="font-weight:500;">¥${fee.toLocaleString('zh-CN', {minimumFractionDigits:2})}</td>
         <td><span class="badge ${feeStatusClass}">${esc(p.fee_payment_status)}</span></td>
+        <td style="text-align:center;">
+          <span class="attachment-badge" id="attach-badge-${p.id}" onclick="openAttachmentModal(${p.id}, '${escJs(p.project_name)}')" title="查看/上传附件">
+            📎 <span id="attach-count-${p.id}">-</span>
+          </span>
+        </td>
         <td>
           ${canEdit() ? `
           <button class="btn btn-outline btn-sm" onclick="openEditModal(${p.id})" title="编辑">✏️</button>
@@ -2770,6 +2921,268 @@ async function confirmDelete() {
   }
 }
 
+// ===== Attachment CRUD =====
+let currentAttachmentProjectId = null;
+let currentAttachmentProjectName = '';
+const ATTACHMENTS_TABLE = 'project_attachments';
+const STORAGE_BUCKET = 'project-attachments';
+
+// Load attachment counts for all visible projects after renderTable
+async function fetchAttachmentCounts() {
+  if (!ANON_KEY || !allProjects.length) return;
+  try {
+    const ids = allProjects.map(p => p.id);
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/${ATTACHMENTS_TABLE}?select=project_id&project_id=in.(${ids.join(',')})`,
+      { headers: getHeaders() }
+    );
+    if (!resp.ok) return;
+    const rows = await resp.json();
+    const counts = {};
+    rows.forEach(r => { counts[r.project_id] = (counts[r.project_id] || 0) + 1; });
+    allProjects.forEach(p => {
+      const cnt = counts[p.id] || 0;
+      const countEl = document.getElementById('attach-count-' + p.id);
+      const badgeEl = document.getElementById('attach-badge-' + p.id);
+      if (countEl) countEl.textContent = cnt;
+      if (badgeEl) {
+        badgeEl.classList.toggle('has-files', cnt > 0);
+        badgeEl.title = cnt > 0 ? cnt + ' 个附件' : '暂无附件，点击上传';
+      }
+    });
+  } catch (e) {
+    console.error('[Attachments] fetch counts failed:', e);
+  }
+}
+
+async function fetchAttachments(projectId) {
+  try {
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/${ATTACHMENTS_TABLE}?select=*&project_id=eq.${projectId}&order=uploaded_at.desc`,
+      { headers: getHeaders() }
+    );
+    if (!resp.ok) throw new Error('加载附件列表失败');
+    return await resp.json();
+  } catch (e) {
+    showToast('加载附件失败: ' + e.message, 'error');
+    return [];
+  }
+}
+
+function openAttachmentModal(projectId, projectName) {
+  currentAttachmentProjectId = projectId;
+  currentAttachmentProjectName = projectName;
+  document.getElementById('attachment-project-name').textContent = projectName;
+  document.getElementById('attachment-file-list').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:13px;">加载中...</div>';
+  document.getElementById('attachment-modal').classList.add('show');
+  refreshAttachmentList();
+}
+
+function closeAttachmentModal() {
+  document.getElementById('attachment-modal').classList.remove('show');
+  currentAttachmentProjectId = null;
+}
+
+async function refreshAttachmentList() {
+  const listEl = document.getElementById('attachment-file-list');
+  const files = await fetchAttachments(currentAttachmentProjectId);
+  if (files.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-secondary);font-size:13px;">📭 暂无附件</div>';
+  } else {
+    listEl.innerHTML = files.map(f => {
+      const sizeStr = formatFileSize(f.file_size);
+      const dateStr = f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString('zh-CN') : '';
+      return `
+        <div class="attachment-file-row">
+          <span class="file-icon">📄</span>
+          <span class="file-name" onclick="downloadAttachment('${f.storage_path.replace(/'/g, "\\'")}', '${(f.file_name || '').replace(/'/g, "\\'")}')" title="点击下载">${esc(f.file_name)}</span>
+          <span class="file-size">${sizeStr}</span>
+          <span class="file-date">${dateStr}</span>
+          ${canEdit() ? `<button class="btn-delete-attachment" onclick="deleteAttachment(${f.id}, '${f.storage_path.replace(/'/g, "\\'")}')" title="删除">🗑️</button>` : ''}
+        </div>`;
+    }).join('');
+  }
+}
+
+function handleAttachmentFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 50 * 1024 * 1024) {
+    showToast('文件大小不能超过 50MB', 'error');
+    event.target.value = '';
+    return;
+  }
+  uploadAttachment(currentAttachmentProjectId, file);
+  event.target.value = '';
+}
+
+async function uploadAttachment(projectId, file) {
+  if (!canEdit()) {
+    showToast('您没有上传权限', 'error');
+    return;
+  }
+  const progressEl = document.getElementById('attachment-upload-progress');
+  const progressBar = document.getElementById('attachment-upload-progress-bar');
+  progressEl.style.display = 'block';
+  progressBar.style.width = '0%';
+
+  try {
+    const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._\-\u4e00-\u9fff]/g, '_');
+    const storagePath = projectId + '/' + safeName;
+
+    // Upload file to Supabase Storage via REST
+    const uploadUrl = `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${storagePath}`;
+    const uploadResp = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'apikey': ANON_KEY,
+        'Authorization': 'Bearer ' + ANON_KEY,
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-upsert': 'true'
+      },
+      body: file
+    });
+
+    if (!uploadResp.ok) {
+      const err = await uploadResp.json().catch(() => ({}));
+      throw new Error(err.message || err.error || '上传失败');
+    }
+
+    progressBar.style.width = '80%';
+
+    // Insert record into project_attachments table
+    const record = {
+      project_id: projectId,
+      file_name: file.name,
+      file_size: file.size,
+      file_type: file.type || 'application/octet-stream',
+      storage_path: storagePath
+    };
+
+    const insertResp = await fetch(`${SUPABASE_URL}/rest/v1/${ATTACHMENTS_TABLE}`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(record)
+    });
+
+    if (!insertResp.ok) {
+      // Cleanup uploaded file if record insert fails
+      await fetch(uploadUrl, { method: 'DELETE', headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY } });
+      const err = await insertResp.json().catch(() => ({}));
+      throw new Error(err.message || '记录保存失败');
+    }
+
+    progressBar.style.width = '100%';
+    showToast('文件上传成功', 'success');
+    refreshAttachmentList();
+    fetchAttachmentCounts();
+  } catch (e) {
+    showToast('上传失败: ' + e.message, 'error');
+  } finally {
+    setTimeout(() => {
+      progressEl.style.display = 'none';
+      progressBar.style.width = '0%';
+    }, 600);
+  }
+}
+
+async function downloadAttachment(storagePath, fileName) {
+  try {
+    // Get signed URL
+    const signResp = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/sign/${STORAGE_BUCKET}/${storagePath}`,
+      {
+        method: 'POST',
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': 'Bearer ' + ANON_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ expiresIn: 300 })
+      }
+    );
+    if (!signResp.ok) throw new Error('获取下载链接失败');
+    const { signedURL } = await signResp.json();
+    // Open download in new tab
+    const a = document.createElement('a');
+    a.href = signedURL;
+    a.download = fileName || '';
+    a.target = '_blank';
+    a.click();
+  } catch (e) {
+    showToast('下载失败: ' + e.message, 'error');
+  }
+}
+
+async function deleteAttachment(attachmentId, storagePath) {
+  if (!canEdit()) {
+    showToast('您没有删除权限', 'error');
+    return;
+  }
+  if (!confirm('确定要删除此附件吗？此操作不可撤销。')) return;
+
+  try {
+    // Delete from storage
+    const delStorage = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${storagePath}`,
+      { method: 'DELETE', headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY } }
+    );
+    if (!delStorage.ok) console.warn('[Attachments] storage delete warning:', delStorage.status);
+
+    // Delete from table
+    const delRecord = await fetch(
+      `${SUPABASE_URL}/rest/v1/${ATTACHMENTS_TABLE}?id=eq.${attachmentId}`,
+      { method: 'DELETE', headers: getHeaders() }
+    );
+    if (!delRecord.ok) {
+      const err = await delRecord.json().catch(() => ({}));
+      throw new Error(err.message || '删除记录失败');
+    }
+
+    showToast('附件已删除', 'success');
+    refreshAttachmentList();
+    fetchAttachmentCounts();
+  } catch (e) {
+    showToast('删除失败: ' + e.message, 'error');
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// Drag & drop support on upload zone
+document.addEventListener('DOMContentLoaded', function() {
+  const zone = document.getElementById('attachment-upload-zone');
+  if (!zone) return;
+  zone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+  });
+  zone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (!canEdit()) {
+      showToast('您没有上传权限', 'error');
+      return;
+    }
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        showToast('文件大小不能超过 50MB', 'error');
+        return;
+      }
+      uploadAttachment(currentAttachmentProjectId, file);
+    }
+  });
+});
+
 // ===== Helpers =====
 function getTypeClass(type) {
   if (type === '常务法律项目') return 'routine';
@@ -2837,13 +3250,17 @@ document.addEventListener('click', function(e) {
   if (e.target.classList.contains('modal-overlay')) {
     e.target.classList.remove('show');
     deleteTargetId = null;
+    if (e.target.id === 'attachment-modal') currentAttachmentProjectId = null;
   }
 });
 
 // Close modals on Escape
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.show').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.modal-overlay.show').forEach(el => {
+      el.classList.remove('show');
+      if (el.id === 'attachment-modal') currentAttachmentProjectId = null;
+    });
     deleteTargetId = null;
   }
 });
